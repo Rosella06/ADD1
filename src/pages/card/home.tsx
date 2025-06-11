@@ -73,6 +73,7 @@ export default function Home() {
     if (qr !== '') {
       if (qr.length === 1) {
         fetchDataQr(`${import.meta.env.VITE_APP_API}/orders/dispense/${qr}`);
+        // fetchDataQr(`${import.meta.env.VITE_APP_API}/orders/dispense/${qr}?id=${id}`);
       } else {
         fetchDataQr(`${import.meta.env.VITE_APP_API}/orders/receive/${qr}`);
       }

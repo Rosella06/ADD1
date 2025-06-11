@@ -5,12 +5,15 @@ import '../src/styles/styles.css';
 import { Islogout, UserRole } from './auth/authentication';
 import Notfound from './pages/notfound';
 import Wrapper from './pages/wrapper';
-import Drugs from './pages/drugs/drugs';
 import Inventory from './pages/inventory/inventory';
 import AddUser from './pages/users/user';
 import Settings from './pages/users/Settings';
 import Home from './pages/card/home';
-import Stock from './pages/inventory/Stock';
+import Hometime from './pages/time';
+import Homs from './pages/homs';
+import Refill from './pages/inventory/Refill';
+import Machinc from './pages/Machinc';
+import Drugs from './pages/drugs/drugs';
 
 const router = createBrowserRouter([
   {
@@ -28,8 +31,8 @@ const router = createBrowserRouter([
           {
             element: <UserRole />,
             children: [{
-              path: "drugs",
-              element: <Drugs />
+              path: "Refill",
+              element: <Refill />
             },
             {
               path: "inventory",
@@ -44,8 +47,24 @@ const router = createBrowserRouter([
               element: <Settings />
             },
             {
-              path: "Stock",
-              element: <Stock />
+              path: "Hometime",
+              element: <Hometime/>
+            },
+            {
+              path: "Machinc",
+              element: <Machinc/>
+            },
+            {
+              path: "Homs",
+              element: <Homs/>
+            },
+               {
+              path: "Drugs",
+              element: <Drugs/>
+            },
+            {
+              path: "Refill",
+              element: <Refill />
             }
             ]
           }

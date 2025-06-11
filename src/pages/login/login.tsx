@@ -74,10 +74,7 @@ const [currentDateTime, setCurrentDateTime] = useState("");
 
     const handleSignIn = async (e: FormEvent) => {
         e.preventDefault();
-
         const { userName, passWord } = userData;
-
-
         if (userName && passWord) {
             try {
                 const response = await axios.post<AxiosResponse<UserLogin>>(baseurl, {
@@ -143,7 +140,6 @@ const [currentDateTime, setCurrentDateTime] = useState("");
         return () => clearInterval(interval);
     }, []);
     
-
     return (
         <div className="flex items-center justify-center min-h-screen bg-blue-800">
             <div className="w-full max-w-lg p-10 bg-white rounded-lg shadow-md">

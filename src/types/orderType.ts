@@ -19,5 +19,5 @@ export type orderType = {
     orderQty: number
   }
 
-
 }
+
