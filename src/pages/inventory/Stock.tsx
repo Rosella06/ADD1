@@ -10,7 +10,7 @@ import { machinetype } from "../../types/machinetype";
 import { inventorytype } from "../../types/inventory";
 import "../../styles/styles.css";
 
-function Stock() {
+function Refill() {
   const { userData } = useContext(Usercontext) as contextType;
 
   const [inventory, setInventory] = useState({
@@ -332,4 +332,4 @@ function Stock() {
   );
 }
 
-export default Stock;
+export default Refill;

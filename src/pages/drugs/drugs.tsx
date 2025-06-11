@@ -26,9 +26,10 @@ function Druges() {
 
     const fetchDrugs = async () => {
         try {
-            const response = await axios.get<AxiosResponse<drugstype[]>>(`${import.meta.env.VITE_APP_API}/drugs`, {
-                headers: { authorization: `Bearer ${userData.token}` }
-            });
+            const response = await axios.get<AxiosResponse<drugstype[]>>
+                (`${import.meta.env.VITE_APP_API}/drugs`, {
+                    headers: { authorization: `Bearer ${userData.token}` }
+                });
             setDrugList(response.data.data);
         } catch (error) {
             if (error instanceof AxiosError) {
@@ -42,7 +43,6 @@ function Druges() {
     useEffect(() => {
         fetchDrugs();
     }, []);
-
     const fileSelect = (e: ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const selectedFile = e.target.files[0];
@@ -60,13 +60,12 @@ function Druges() {
                 });
         }
     };
-
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         const baseurl = `${import.meta.env.VITE_APP_API}/drugs`;
 
         try {
-            const { id, DrugImage, DrugName } = drugs;
+            const { id, DrugImage, DrugName, } = drugs;
             if (id !== '' && DrugName !== '') {
                 const formData = new FormData();
                 formData.append('id', id);
@@ -157,10 +156,11 @@ function Druges() {
         });
     };
 
+
     const editDrug = (drug: drugstype) => {
         setSelectedDrug(drug);
         setDrugs({
-            id: drug.id,
+            id: drug.Drugcode,
             DrugName: drug.DrugName,
             DrugImage: null
         });
@@ -169,21 +169,22 @@ function Druges() {
         setShowForm(true);
     };
 
+
     const columns: TableColumn<drugstype>[] = [
         {
             name: 'DrugImage',
             cell: (item) => (
-                <img 
-                    src={item.DrugImage && item.DrugImage.trim() !== "" ? `${import.meta.env.VITE_APP_IMG}${item.DrugImage}` : defaultImage} 
-                    alt="drugsimg" 
-                    className="rounded-md text-center object-contain h-20 w-60" 
+                <img
+                    src={item.DrugImage && item.DrugImage.trim() !== "" ? `${import.meta.env.VITE_APP_IMG}${item.DrugImage}` : defaultImage}
+                    alt="drugsimg"
+                    className="rounded-md text-center object-contain h-20 w-60"
                 />
             ),
             sortable: true,
         },
         {
             name: 'id',
-            selector: row => row.id,
+            selector: row => row.Drugcode,
             sortable: true,
         },
         {
@@ -191,6 +192,7 @@ function Druges() {
             selector: row => row.DrugName,
             sortable: true,
         },
+
         {
             name: 'Actions',
             cell: (item) => (
@@ -198,7 +200,7 @@ function Druges() {
                     <button onClick={() => editDrug(item)} className=" text-yellow-400  flex items-center space-x-1 transition duration-300 text-3xl">
                         <FaEdit />
                     </button>
-                    <button onClick={() => deletedrug(item.id)} className=" p-4 text-red-600 flex items-center space-x-1 transition duration-300">
+                    <button onClick={() => deletedrug(item.Drugcode)} className=" p-4 text-red-600 flex items-center space-x-1 transition duration-300">
                         <FaTrash />
                     </button>
                 </div>
@@ -279,17 +281,16 @@ function Druges() {
                 <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
                     <div className="bg-white p-6 rounded shadow-lg w-full max-w-lg">
                         <div className="flex justify-between items-center mb-2">
-                        <h2 className="text-2xl font-bold text-center mb-4 text-blue-800">
-                            {isEditMode ? "Edit Drug" : "ADD Drug"}</h2>
-                   
-                                <button
-                                    onClick={() => setShowForm(false)}
-                                    className="text-red-500 font-bold"
-                                >
-                                    ✕
-                                </button>
-                            </div>
-                      
+                            <h2 className="text-2xl font-bold text-center mb-4 text-blue-800">
+                                {isEditMode ? "Edit Drug" : "ADD Drug"}</h2>
+                            <button
+                                onClick={() => setShowForm(false)}
+                                className="text-red-500 font-bold"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div className="flex flex-col ">
                                 <label htmlFor="id" className="block text-sm font-medium text-gray-900">id</label>

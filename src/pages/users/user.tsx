@@ -104,7 +104,7 @@ const AddUser: React.FC = () => {
                     <button onClick={() => handleDelete(row.id)} className="ml-2 text-red-600 hover:underline text-2xl">
                         <FaTrash />
                     </button>
-                    <button onClick={async () => {
+                    {/* <button onClick={async () => {
                         try {
                             const response = await axios.get(`${import.meta.env.VITE_APP_API}/auth/qr/${row.id}`, {
                                 headers: { Authorization: `Bearer ${token}` },
@@ -117,7 +117,7 @@ const AddUser: React.FC = () => {
                         }
                     }} className="ml-5 text-md text-blue-600 hover:underline">
                         สร้าง QR CODE
-                    </button>
+                    </button> */}
                 </>
             ),
         },
@@ -299,7 +299,7 @@ const AddUser: React.FC = () => {
                                         value={userName}
                                         onChange={(e) => setUserName(e.target.value)}
                                         required
-                                        className="p-2 border border-gray-300 rounded bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                                        className="p-2 border border-gray-300 rounded text-black bg-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
                                     />
                                 </div>
                                 {!editingUserId &&
@@ -329,13 +329,13 @@ const AddUser: React.FC = () => {
                                             value={userPincode}
                                             onChange={(e) => setUserPincode(e.target.value)}
                                             required
-                                            className="p-1 border border-gray-300 rounded  bg-white"
+                                            className="p-1 border border-gray-300 rounded text-black  bg-white"
                                         />
                                     </div>}
                                 <div className="flex flex-col mb-2">
                                     <label className="block text-gray-700 text-xs font-bold mb-1" htmlFor="displayName">
                                         <span className="inline-flex items-center">
-                                            <i className="fas fa-tag mr-2 text-gray-500"></i> Display Name
+                                            <i className="fas fa-tag mr-2 text-black"></i> Display Name
                                         </span>
                                     </label>
                                     <input
@@ -343,7 +343,7 @@ const AddUser: React.FC = () => {
                                         value={displayName}
                                         onChange={(e) => setDisplayName(e.target.value)}
                                         required
-                                        className="p-1 border border-gray-300 rounded  bg-white"
+                                        className="p-1 border border-gray-300 rounded text-black  bg-white"
                                     />
                                 </div>
                                 <div className="flex flex-col mb-4">
@@ -357,8 +357,12 @@ const AddUser: React.FC = () => {
                                         onChange={(e) => setUserRole(e.target.value)}
                                         className="border rounded-lg py-1 px-2 text-gray-700 focus:outline-none focus:shadow-outline  bg-white"
                                     >
-                                        <option value="USER">USER</option>
                                         <option value="ADMIN">ADMIN</option>
+                                        <option value="USER">USER</option>
+                                        <option value="HEAD_PHARMACIST">HEAD_PHARMACIST</option>
+                                        <option value="PHARMACIST">PHARMACIST</option>
+                                        <option value="ASSISTANT">ASSISTANT</option>
+                                        <option value="SUPER">SUPER</option>
                                     </select>
                                 </div>
                                 <div className="flex flex-col mb-4">
@@ -379,14 +383,14 @@ const AddUser: React.FC = () => {
                                 <div className="flex flex-col mb-2">
                                     <label className="block text-gray-700 text-xs font-bold mb-1" htmlFor="userRole">
                                         <span className="inline-flex items-center">
-                                            <i className="fas fa-user-shield mr-2 text-gray-500"></i>  User Image
+                                            <i className="fas fa-user-shield mr-2 text-black"></i>  User Image
                                         </span>
                                     </label>
                                     <input
                                         type="file"
                                         accept="image/*"
                                         onChange={fileSelect}
-                                        className="  rounded-lg py-1 px-2 text-gray-700 focus:outline-none focus:shadow-outline "
+                                        className="  rounded-lg py-1 px-2 text-black focus:outline-none focus:shadow-outline "
                                     />
                                 </div>
 

@@ -7,6 +7,8 @@ export type inventorytype = {
   InventoryStatus: boolean;
   DrugId: string;
   MachineId: string;
+  Expiydate:string;
+  InventoryFloor:number;
   Drug: {
     id: string;
     DrugName: string;
