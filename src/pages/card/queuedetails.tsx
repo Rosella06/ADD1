@@ -6,39 +6,118 @@ import cookies from 'js-cookie';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { contextType } from "../../types/global.type";
-import { useContext, useState } from "react";
+import { useContext, useEffect, useState} from "react";
 import { Usercontext } from "../../constants/constants";
 import defaultImage from '../../img/user.png';
 import DataTable, { TableColumn } from "react-data-table-component";
 import { Prescription } from "../../types/Prescription";
+import axios from "axios";
+import { io } from "socket.io-client";
 
 type queuelistType = {
-  queueData: orderType[];
+  queueData?: orderType[];
   clearOrders: () => void;
 };
 
-export default function Queuedetails({ queueData, clearOrders }: queuelistType) {
+export default function Queuedetails({ queueData = [], clearOrders }: queuelistType) {
   const { userData } = useContext(Usercontext) as contextType;
   const { userRole } = userData;
   const navigate = useNavigate();
 
-  const [filteredPrescriptionList] = useState<Prescription[]>([
-    // ใส่ข้อมูล mock ไว้ก่อน สามารถเปลี่ยนเป็น API call ได้
-    // { Drug: { DrugName: "Paracetamol" }, InventoryPosition: "A1", InventoryQty: 20, Max: 50 },
-    // { Drug: { DrugName: "Ibuprofen" }, InventoryPosition: "B3", InventoryQty: 15, Max: 40 },
-  ]);
+  const [filteredPrescriptionList] = useState<Prescription[]>([]);
+  const [plcErrors, setPlcErrors] = useState<{ status: string; message: string; command: string; timestamp: string }[]>([]);
+  const [plcLogs, setPlcLogs] = useState<string[]>([]);
 
   const handleLogout = () => {
     cookies.remove('userData');
     navigate('/login');
     Swal.fire({
-      icon: 'success',
+      // icon: 'success',
       title: 'Logged out',
       text: 'You have been logged out successfully.',
     });
   };
 
-  const columnsStock: TableColumn<Prescription>[] = [
+  useEffect(() => {
+    const socket = io("ws://localhost:3000");
+
+    socket.on("connect", () => {
+      console.log("✅ Connected to socket");
+    });
+socket.on("plc-error", (data) => {
+  console.warn("📛 PLC Error Received:", data);
+  setPlcErrors((prev) => [...prev, data]);
+
+  const errorCodesToAlert = ['02','03','04','05','06','07','08','09','10','11','12','13','14'];
+  const match = data.message.match(/-> (\d{2})/); // หารหัสสถานะจากข้อความ เช่น -> 03
+  const code = match?.[1];
+
+  if (code && errorCodesToAlert.includes(code)) {
+    Swal.fire({
+      icon: 'error',
+      title: `เกิดข้อผิดพลาดจากเครื่อง (${code})`,
+      html: `
+        <p><strong>${data.message}</strong></p>
+        <p class="mt-2">กรุณากด <span class="font-bold text-blue-600">รีบูตระบบ</span> หรือติดต่อช่าง</p>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'รีบูตระบบ',
+      cancelButtonText: 'ปิด',
+      confirmButtonColor: '#0ea5e9',
+    }).then((result) => {
+      if (result.isConfirmed) {
+        sendM30Command(); 
+      }
+    });
+  }
+});
+
+
+    socket.on("plc-log", (msg: string) => {
+      setPlcLogs((prev) => [...prev.slice(-19), msg]); 
+    });
+
+    return () => {
+      socket.close();
+    };
+  }, []);
+
+  const sendM30Command = async () => {
+    try {
+      const machineId = localStorage.getItem('selectedMachineId');
+      if (!machineId) {
+        return Swal.fire({
+          icon: 'error',
+          title: 'ไม่พบเครื่อง',
+          text: 'กรุณาเลือกเครื่องก่อน',
+        });
+      }
+
+      await axios.post(`${import.meta.env.VITE_APP_API}/plc/sendM`, {
+        command: 'm30',
+        machineId,
+      }, {
+        headers: { authorization: `Bearer ${userData.token}` },
+      });
+
+      Swal.fire({
+        icon: "success",
+        title: "ส่งคำสั่ง m30 เรียบร้อย",
+        showConfirmButton: false,
+        timer: 1500,
+      });
+
+    } catch (error) {
+      console.error(error);
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาด",
+        text: "ไม่สามารถส่งคำสั่ง m30 ได้",
+      });
+    }
+  };
+
+  const columns: TableColumn<Prescription>[] = [
     {
       name: 'ช่องยาที่',
       selector: row => row.PriorityCode,
@@ -64,7 +143,6 @@ export default function Queuedetails({ queueData, clearOrders }: queuelistType) 
       selector: row => new Date(row.UpdatedAt).toLocaleString(),
       sortable: true,
     }
-
   ];
 
   return (
@@ -99,8 +177,33 @@ export default function Queuedetails({ queueData, clearOrders }: queuelistType) 
         </header>
       )}
 
-      <main className="flex-grow h-screen">
-        {queueData.length > 0 ? (
+      <main className="flex-grow h-screen pt-[30px] px-2">
+        {plcErrors.length > 0 && (
+          <div className="p-6">
+            <h2 className="text-2xl font-semibold text-red-600 mb-3"> ข้อผิดพลาดจากตู้ADD </h2>
+            <div className="grid grid-cols-3 gap-4">
+              {plcErrors.slice(-3).map((err, idx) => (
+                <div key={idx} className="bg-white rounded-lg shadow p-4 border-l-4 border-red-500">
+                  <div className="text-black"><span className="font-bold"></span> {err.message}</div>
+                  <div className="text-sm text-gray-500">{new Date(err.timestamp).toLocaleString()}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+      
+        {plcLogs.length > 0 && (
+          <div className="p-6 pt-0">
+            <h2 className="text-2xl font-semibold text-gray-700 mb-3">📄 รายงานจาก PLC</h2>
+            <div className="bg-white p-4 rounded-lg shadow max-h-[300px] overflow-y-auto text-sm text-gray-800 space-y-1">
+              {plcLogs.map((log, index) => (
+                <div key={index}>• {log}</div>
+              ))}
+            </div>
+          </div>
+        )}
+        {Array.isArray(queueData) && queueData.length > 0 ? (
           <>
             <span className="flex justify-center text-8xl font-extrabold text-yellow-400 py-12 bg-gradient-to-r from-blue-900 to-blue-700 text-transparent bg-clip-text">
               รายการยา
@@ -118,7 +221,7 @@ export default function Queuedetails({ queueData, clearOrders }: queuelistType) 
           <>
             <div className="overflow-x-auto text-black p-6">
               <DataTable
-                columns={columnsStock}
+                columns={columns}
                 data={filteredPrescriptionList}
                 paginationPerPage={10}
                 pagination
@@ -135,8 +238,7 @@ export default function Queuedetails({ queueData, clearOrders }: queuelistType) 
                     style: {
                       backgroundColor: '#f1f5f9',
                     }
-                  },
-
+                  }
                 }}
               />
             </div>
@@ -157,14 +259,19 @@ export default function Queuedetails({ queueData, clearOrders }: queuelistType) 
         )}
       </main>
 
-      <div className="flex justify-end p-20">
+      <div className="flex justify-end p-20 gap-3">
         <button
           onClick={clearOrders}
           className="px-4 py-2 bg-red-600 text-white rounded-lg"
         >
           ล้างรายการทั้งหมด
         </button>
+        <button onClick={sendM30Command} className="btn bg-sky-400 text-white hover:bg-cyan-500 transition duration-300 px-3 h-10 text-sm">
+          รีบูตระบบ
+        </button>
       </div>
     </div>
   );
 }
+
+

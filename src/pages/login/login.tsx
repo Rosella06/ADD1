@@ -144,7 +144,8 @@ const [currentDateTime, setCurrentDateTime] = useState("");
         <div className="flex items-center justify-center min-h-screen bg-blue-800">
             <div className="w-full max-w-lg p-10 bg-white rounded-lg shadow-md">
                 <h1 className="text-5xl font-extrabold text-blue-800 text-center p-2">ADD Login</h1>
-                <h2 className="text-lg text-center text-gray-700 mb-12">กรุณากรอกข้อมูล หรือ Scan Barcode เพื่อใช้งาน</h2>
+                <h2 className="text-lg text-center text-gray-700 mb-12">กรุณากรอกข้อมูลเพื่อใช้งานโปรแกรม</h2> 
+                 {/* หรือ Scan Barcode  */}
                 <form onSubmit={handleSignIn}>
                     <div className="space-y-6">
                         <div className="relative">

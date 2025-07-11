@@ -9,7 +9,6 @@ import { FaEdit, FaPlus, FaTrash } from "react-icons/fa";
 import "../../styles/styles.css"
 import defaultImage from '../../img/no-drugs.png'
 
-
 function Druges() {
     const [drugs, setDrugs] = useState({
         id: '',
@@ -23,6 +22,7 @@ function Druges() {
     const [showForm, setShowForm] = useState(false);
     const [isEditMode, setIsEditMode] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [tableKey, setTableKey] = useState(Date.now());
 
     const fetchDrugs = async () => {
         try {
@@ -31,6 +31,7 @@ function Druges() {
                     headers: { authorization: `Bearer ${userData.token}` }
                 });
             setDrugList(response.data.data);
+            setTableKey(Date.now()); // บังคับ refresh DataTable
         } catch (error) {
             if (error instanceof AxiosError) {
                 console.error(error.response?.data.message);
@@ -43,6 +44,7 @@ function Druges() {
     useEffect(() => {
         fetchDrugs();
     }, []);
+
     const fileSelect = (e: ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
             const selectedFile = e.target.files[0];
@@ -60,23 +62,24 @@ function Druges() {
                 });
         }
     };
+
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         const baseurl = `${import.meta.env.VITE_APP_API}/drugs`;
 
         try {
-            const { id, DrugImage, DrugName, } = drugs;
+            const { id, DrugImage, DrugName } = drugs;
             if (id !== '' && DrugName !== '') {
                 const formData = new FormData();
                 formData.append('id', id);
                 formData.append('DrugName', DrugName);
-
                 if (DrugImage) {
                     formData.append('fileupload', DrugImage);
                 }
 
                 if (isEditMode && selectedDrug) {
-                    await axios.put<AxiosResponse<drugstype>>(`${baseurl}/${selectedDrug.id}`, formData, {
+                    console.log("🛠 Editing Drugcode:", selectedDrug.Drugcode);
+                    await axios.put<AxiosResponse<drugstype>>(`${baseurl}/${selectedDrug.Drugcode}`, formData, {
                         headers: {
                             Accept: "application/json",
                             "Content-Type": "multipart/form-data",
@@ -94,11 +97,7 @@ function Druges() {
                 }
 
                 fetchDrugs();
-                setDrugs({
-                    id: '',
-                    DrugName: '',
-                    DrugImage: null
-                });
+                setDrugs({ id: '', DrugName: '', DrugImage: null });
                 setDrugImg('');
                 setShowForm(false);
                 setIsEditMode(false);
@@ -119,7 +118,7 @@ function Druges() {
             }
 
         } catch (error) {
-            console.error('Error:', error);
+            console.error('❌ Error:', error);
         }
     };
 
@@ -156,7 +155,6 @@ function Druges() {
         });
     };
 
-
     const editDrug = (drug: drugstype) => {
         setSelectedDrug(drug);
         setDrugs({
@@ -168,7 +166,6 @@ function Druges() {
         setIsEditMode(true);
         setShowForm(true);
     };
-
 
     const columns: TableColumn<drugstype>[] = [
         {
@@ -192,22 +189,22 @@ function Druges() {
             selector: row => row.DrugName,
             sortable: true,
         },
-
         {
             name: 'Actions',
             cell: (item) => (
-                <div className="p-3 flex space-x-2 text-2xl  ">
-                    <button onClick={() => editDrug(item)} className=" text-yellow-400  flex items-center space-x-1 transition duration-300 text-3xl">
+                <div className="p-3 flex space-x-2 text-2xl">
+                    <button onClick={() => editDrug(item)} className="text-yellow-400 text-3xl">
                         <FaEdit />
                     </button>
-                    <button onClick={() => deletedrug(item.Drugcode)} className=" p-4 text-red-600 flex items-center space-x-1 transition duration-300">
+                    <button onClick={() => deletedrug(item.Drugcode)} className="p-4 text-red-600">
                         <FaTrash />
                     </button>
                 </div>
             ),
-            sortable: true,
+            sortable: false,
         },
     ];
+
     const handleSearch = (searchTerm: string) => {
         if (searchTerm.trim() === '') {
             fetchDrugs();
@@ -219,10 +216,9 @@ function Druges() {
         }
     };
 
-
     return (
-        <div className="flex flex-col items-center  py-0 bg-gray-100 ">
-            <div className="card w-full h-screen p-4 bg-white shadow-xl text-blue-800 rounded-none">
+        <div className="flex flex-col items-center py-0 bg-gray-100">
+            <div className="card w-full h-screen p-7 bg-white shadow-xl text-blue-800 rounded-none">
                 <div className="flex justify-between items-center">
                     <div className="text-4xl font-bold">Drug</div>
                     <div className="flex items-center">
@@ -239,6 +235,8 @@ function Druges() {
                         <button onClick={() => {
                             setShowForm(true);
                             setIsEditMode(false);
+                            setDrugs({ id: '', DrugName: '', DrugImage: null });
+                            setDrugImg('');
                         }} className="btn bg-green-500 text-white hover:bg-green-400 transition duration-300">
                             <FaPlus />
                         </button>
@@ -246,8 +244,9 @@ function Druges() {
                 </div>
 
                 <div className="divider mt-2"></div>
-                <div className="h-full w-full  overflow-x-auto flex-grow bg-white">
+                <div className="h-full w-full overflow-x-auto flex-grow bg-white">
                     <DataTable
+                        key={tableKey}
                         columns={columns}
                         data={drugList}
                         paginationPerPage={15}
@@ -255,17 +254,8 @@ function Druges() {
                         paginationRowsPerPageOptions={[5, 10, 15, 20]}
                         responsive
                         customStyles={{
-                            table: {
-                                style: {
-                                    width: '100%',
-                                    tableLayout: 'fixed',
-                                }
-                            },
-                            headRow: {
-                                style: {
-                                    backgroundColor: '#f1f5f9',
-                                }
-                            },
+                            table: { style: { width: '100%', tableLayout: 'fixed' } },
+                            headRow: { style: { backgroundColor: '#f1f5f9' } },
                             cells: {
                                 style: {
                                     padding: '8px',
@@ -277,6 +267,7 @@ function Druges() {
                     />
                 </div>
             </div>
+
             {showForm && (
                 <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
                     <div className="bg-white p-6 rounded shadow-lg w-full max-w-lg">
@@ -292,13 +283,14 @@ function Druges() {
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-6">
-                            <div className="flex flex-col ">
+                            <div className="flex flex-col">
                                 <label htmlFor="id" className="block text-sm font-medium text-gray-900">id</label>
                                 <input
                                     type="text"
                                     id="id"
                                     value={drugs.id}
                                     onChange={(e) => setDrugs({ ...drugs, id: e.target.value })}
+                                    disabled={isEditMode}
                                     className="p-2 border border-gray-300 rounded bg-white text-zinc-700"
                                     required
                                 />
@@ -324,8 +316,9 @@ function Druges() {
                             </div>
                             {drugImg && <img src={drugImg} alt="Preview" className="my-4 rounded-md object-cover h-32 w-32" />}
                             <div className="flex justify-end space-x-4">
-                                {/* <button type="button" onClick={() => setShowForm(false)} className="mr-2 bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded">Cancel</button> */}
-                                <button type="submit" className="btn bg-green-500 text-white hover:bg-green-600 transition duration-300">{isEditMode ? "Update" : "Add"}</button>
+                                <button type="submit" className="btn bg-green-500 text-white hover:bg-green-600 transition duration-300">
+                                    {isEditMode ? "Update" : "Add"}
+                                </button>
                             </div>
                         </form>
                     </div>

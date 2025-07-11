@@ -2,7 +2,7 @@ import { FormEvent, useContext, useEffect, useState } from "react";
 import axios, { AxiosError } from "axios";
 import { Usercontext } from "../../constants/constants";
 import { AxiosResponse, contextType } from "../../types/global.type";
-import DataTable, { TableColumn } from 'react-data-table-component';
+import DataTable, { TableColumn } from "react-data-table-component";
 import Swal from "sweetalert2";
 import { drugstype } from "../../types/drugs";
 import { machinetype } from "../../types/machinetype";
@@ -16,11 +16,12 @@ function Refill() {
     const [, setDrugList] = useState<drugstype[]>([]);
     const [, setMachineList] = useState<machinetype[]>([]);
     const [showForm, setShowForm] = useState(false);
-    const [isEditMode, setIsEditMode] = useState(false);
+    const [isRefillConfirmed, setIsRefillConfirmed] = useState(false);
     const [, setLoading] = useState(true);
-    const [errorMessage, setErrorMessage] = useState('');
-    const [searchTerm, setSearchTerm] = useState('');
-
+    const [, setErrorMessage] = useState("");
+    const [searchTerm, setSearchTerm] = useState("");
+    const [inputValue, setInputValue] = useState("");
+    const [isNewInput, setIsNewInput] = useState(true);
 
     const baseurl = `${import.meta.env.VITE_APP_API}/inventory`;
 
@@ -35,6 +36,10 @@ function Refill() {
         }
     };
 
+    useEffect(() => {
+        fetchData();
+    }, []);
+
     const fetchInventory = async () => {
         try {
             const response = await axios.get<AxiosResponse<inventorytype[]>>(baseurl, {
@@ -46,11 +51,22 @@ function Refill() {
         }
     };
 
+    useEffect(() => {
+        if (inventory) {
+            const qty = parseInt(inputValue || "0", 10);
+            if (!isNaN(qty)) {
+                setInventory({
+                    ...inventory,
+                    InventoryQty: qty,
+                });
+            }
+        }
+    }, [inputValue]);
 
     const fetchDrugList = async () => {
         try {
             const response = await axios.get<AxiosResponse<drugstype[]>>(`${import.meta.env.VITE_APP_API}/drugs`, {
-                headers: { Authorization: `Bearer ${userData.token}` }
+                headers: { Authorization: `Bearer ${userData.token}` },
             });
             setDrugList(response.data.data);
         } catch (error) {
@@ -61,7 +77,7 @@ function Refill() {
     const fetchMachineList = async () => {
         try {
             const response = await axios.get<AxiosResponse<machinetype[]>>(`${import.meta.env.VITE_APP_API}/machine`, {
-                headers: { Authorization: `Bearer ${userData.token}` }
+                headers: { Authorization: `Bearer ${userData.token}` },
             });
             setMachineList(response.data.data);
         } catch (error) {
@@ -70,48 +86,60 @@ function Refill() {
     };
 
     const handleError = (error: unknown) => {
-        if (error instanceof AxiosError) {
-            setErrorMessage(error.response?.data.message || "เกิดข้อผิดพลาด");
-        } else {
-            setErrorMessage("เกิดข้อผิดพลาด");
-        }
+        const message =
+            error instanceof AxiosError
+                ? error.response?.data.message || "เกิดข้อผิดพลาด"
+                : "เกิดข้อผิดพลาด";
+
+        setErrorMessage(message);
+        Swal.fire({
+            icon: "error",
+            title: message,
+            showConfirmButton: false,
+            timer: 1500,
+        });
     };
-
-
-    useEffect(() => {
-        fetchData();
-    }, []);
-
 
     const editStock = (item: inventorytype) => {
         setInventory(item);
-        setIsEditMode(true);
+        setInputValue(item.InventoryQty.toString());
+        setIsNewInput(true);
+        setIsRefillConfirmed(false);
         setShowForm(true);
     };
 
     const handleSubmitEdit = async (e: FormEvent) => {
         e.preventDefault();
-        setErrorMessage('');
+        setErrorMessage("");
 
         try {
-            const { InventoryQty, id, Drug } = inventory || {};
+            const { InventoryQty, id, InventoryFloor, InventoryPosition } = inventory || {};
 
-            if (InventoryQty) {
+            if (InventoryQty !== undefined && InventoryFloor !== undefined && InventoryPosition !== undefined) {
+                const machineId = localStorage.getItem("selectedMachineId");
+                if (!machineId) return showError("ไม่พบ selectedMachineId กรุณาเลือกเครื่องก่อน");
+
                 const inventoryBody = { InventoryQty };
                 const requestUrl = `${baseurl}/stock/${id}`;
-
-                const response = await axios.put<AxiosResponse<inventorytype>>(requestUrl, inventoryBody, {
+                await axios.put<AxiosResponse<inventorytype>>(requestUrl, inventoryBody, {
                     headers: { authorization: `Bearer ${userData.token}` },
                 });
 
-                Swal.fire({
-                    icon: "success",
-                    title: response.data.message,
-                    showConfirmButton: false,
-                    timer: 1500,
-                });
+                await axios.post(
+                    `${import.meta.env.VITE_APP_API}/plc/sendM`,
+                    {
+                        command: "M32",
+                        floor: InventoryFloor,
+                        position: Number(InventoryPosition),
+                        qty: InventoryQty,
+                        machineId,
+                    },
+                    {
+                        headers: { authorization: `Bearer ${userData.token}` },
+                    }
+                );
+
                 fetchInventory();
-                resetForm();
             } else {
                 showError("กรุณากรอกข้อมูลให้ครบ");
             }
@@ -120,29 +148,25 @@ function Refill() {
         }
     };
 
-
-
-    const handleSubmit = async (e: FormEvent) => {
-        e.preventDefault();
-        setErrorMessage('');
+    const sendM33Command = async (item: inventorytype) => {
         try {
-            const { InventoryPosition, InventoryQty } = inventory || {};
-            if (InventoryPosition && InventoryQty) {
-                const inventoryBody = { InventoryPosition, InventoryQty };
-                const response = await axios.post<AxiosResponse<inventorytype>>(baseurl, inventoryBody, {
+            const machineId = localStorage.getItem("selectedMachineId");
+            if (!machineId) return showError("ไม่พบ selectedMachineId กรุณาเลือกเครื่องก่อน");
+
+            await axios.post(
+                `${import.meta.env.VITE_APP_API}/plc/sendM`,
+                {
+                    command: "m33",
+                    machineId,
+                    inventoryId: item.id,
+                },
+                {
                     headers: { authorization: `Bearer ${userData.token}` },
-                });
-                fetchInventory();
-                resetForm();
-                Swal.fire({
-                    icon: "success",
-                    title: response.data.message,
-                    showConfirmButton: false,
-                    timer: 1500,
-                });
-            } else {
-                showError("กรุณากรอกข้อมูลให้ครบ");
-            }
+                }
+            );
+
+            fetchInventory();
+            resetForm();
         } catch (error) {
             handleError(error);
         }
@@ -160,102 +184,52 @@ function Refill() {
     const resetForm = () => {
         setInventory(undefined);
         setShowForm(false);
-        setIsEditMode(false);
+        setIsRefillConfirmed(false);
     };
 
-    // const deleteInventory = async (id: string) => {
-    //     Swal.fire({
-    //         title: "คุณต้องการลบรายการคลังสินค้าหรือไม่?",
-    //         icon: "warning",
-    //         showCancelButton: true,
-    //         confirmButtonColor: "#d33",
-    //         cancelButtonColor: "#3085d6",
-    //         confirmButtonText: "ลบ",
-    //         cancelButtonText: "ยกเลิก",
-    //     }).then(async (result) => {
-    //         if (result.isConfirmed) {
-    //             try {
-    //                 const response = await axios.delete<AxiosResponse<inventorytype>>(`${baseurl}/${id}`, {
-    //                     headers: { authorization: resetForm`Bearer ${userData.token}` }
-    //                 });
-
-    //                 Swal.fire({
-    //                     icon: "success",
-    //                     title: response.data.message,
-    //                     showConfirmButton: false,
-    //                     timer: 1500,
-    //                 });
-    //                 fetchInventory();
-    //             } catch (error) {
-    //                 handleError(error);
-    //             }
-    //         }
-    //     });
-    // };
-
-    const filteredInventoryList = inventoryList.filter(item =>
+    const filteredInventoryList = inventoryList.filter((item) =>
         item.Drug.DrugName.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const columnsStock: TableColumn<inventorytype>[] = [
-      
+        { name: "InventoryFloor", selector: (row) => row.InventoryFloor, sortable: true },
+        { name: "InventoryPosition", selector: (row) => row.InventoryPosition, sortable: true },
+        { name: "DrugName", selector: (row) => row.Drug.DrugName, sortable: true },
+        { name: "InventoryQty", selector: (row) => row.InventoryQty, sortable: true },
+        { name: "Min", selector: (row) => row.Min, sortable: true },
+        { name: "Max", selector: (row) => row.Max, sortable: true },
         {
-            name: 'InventoryPosition',
-            selector: row => row.InventoryPosition,
-            sortable: true,
-        },
-          {
-            name: 'DrugName',
-            selector: row => row.Drug.DrugName,
-            sortable: true,
-        },
-        {
-            name: 'InventoryQty',
-            selector: row => row.InventoryQty,
-            sortable: true,
-        },
-         {
-            name: 'Min',
-            selector: row => row.Min,
-            sortable: true,
-        },
-        {
-            name: 'Max',
-            selector: row => row.Max,
-            sortable: true,
-        },
-        {
-            name: 'Actions',
+            name: "Actions",
             cell: (item) => (
-                <div className="p-3 flex space-x-2 text-2xl">
-                    <button onClick={() => editStock(item)} className="btn bg-green-500 text-white hover:bg-green-400 transition duration-300 h-12 flex items-center">
-                        เติมยา
-                    </button>
-                    {/* <button onClick={() => deleteInventory(item.id)} className="text-red-600 flex items-center space-x-1">
-                        <FaTrash />
-                    </button> */}
-                </div>
+                <button
+                    onClick={() => editStock(item)}
+                    className="btn bg-sky-400 text-white hover:bg-cyan-500 transition duration-300 px-3 h-10 text-sm"
+                >
+                    เติมยา
+                </button>
             ),
-            sortable: true,
+            sortable: false,
+            width: "100px",
+            wrap: true,
         },
     ];
 
     return (
         <div>
-            <div className="card w-full h-screen p-4 bg-white shadow-xl text-blue-800 rounded-none">
+            <div className="card w-full h-screen p-7 bg-white shadow-xl text-blue-800 rounded-none">
                 <div className="flex justify-between items-center">
                     <h2 className="text-4xl font-bold">Stock</h2>
-                    <div className="flex items-center space-x-2">
-                        <input
-                            type="text"
-                            placeholder="ค้นหาชื่อยา..."
-                            className="input w-full max-w-xs border-2 border-gray-300 h-12 bg-white"
-                            value={searchTerm}
-                            onChange={(e) => setSearchTerm(e.target.value)}
-                        />
-                    </div>
+                    <input
+                        type="text"
+                        placeholder="ค้นหาชื่อยา..."
+                        className="input w-full max-w-xs border-2 border-gray-300 h-12 bg-white"
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                    />
                 </div>
+
                 <div className="divider mt-2"></div>
+
                 <div className="h-full w-full overflow-x-auto flex-grow bg-white text-black">
                     <DataTable
                         columns={columnsStock}
@@ -265,97 +239,165 @@ function Refill() {
                         paginationRowsPerPageOptions={[6, 10, 15, 20]}
                         responsive
                         customStyles={{
-                            table: {
-                                style: {
-                                    width: '100%',
-                                    tableLayout: 'fixed',
-                                }
-                            },
-                            headRow: {
-                                style: {
-                                    backgroundColor: '#f1f5f9',
-                                }
-                            },
-                            cells: {
-                                style: {
-                                    padding: '10px',
-                                    borderBottom: '1px solid #e5e7eb',
-                                }
-                            }
+                            table: { style: { width: "100%", tableLayout: "fixed" } },
+                            headRow: { style: { backgroundColor: "#f1f5f9" } },
+                            cells: { style: { padding: "10px", borderBottom: "1px solid #e5e7eb" } },
                         }}
                     />
                 </div>
+
                 {showForm && (
                     <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex justify-center items-center z-50">
-                        <div className="bg-white p-6 rounded-lg shadow-lg w-full md:w-1/2 ">
+                        <div className="bg-white p-6 rounded-lg shadow-lg w-full md:w-1/2">
+                            <form onSubmit={handleSubmitEdit}>
+                                <label className="text-2xl font-bold text-black text-center p-4 block">
+                                    ชื่อยา: {inventory?.Drug.DrugName}
+                                </label>
 
-                            <form onSubmit={isEditMode ? handleSubmitEdit : handleSubmit}>
-                                {/* {errorMessage && <p className="text-red-500 mb-2">{errorMessage}</p>} */}
-                                <div className="flex flex-col mb-4">
-                                    <label className="text-2xl font-bold text-black text-center  p-4">ชื่อยา: {inventory?.Drug.DrugName}</label>
-                                    <div className="flex justify-center items-center space-x-2">
-                                        <input
-                                            type=""
-                                            value={inventory?.InventoryQty}
-                                            onChange={(e) => {
-                                                if (inventory) {
-                                                    setInventory({
-                                                        ...inventory,
-                                                        InventoryQty: Number(e.target.value),
-                                                    });
+                                {isRefillConfirmed && (
+                                    <p className="text-green-600 text-center mb-4 font-semibold">
+                                        กรุณากด Confirm เพื่อยืนยันการเติมยา
+                                    </p>
+                                )}
+
+                                <div className="flex flex-col items-center space-y-2 mb-4">
+                                    <div className="flex items-center space-x-2 mb-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const current = parseInt(inputValue || "0", 10);
+                                                const prev = current - 1;
+                                                if (prev >= 0) {
+                                                    setInputValue(prev.toString());
+                                                    setIsNewInput(false);
                                                 }
                                             }}
-                                            className="w-20 p-2 border border-gray-300 rounded text-center bg-white text-black"
-                                            required
-                                            min={0}
-                                            max={inventory?.Max}
+                                            className="w-10 h-10 bg-red-500 hover:bg-red-600 text-white text-xl rounded-full flex items-center justify-center shadow-md"
+                                        >
+                                            -
+                                        </button>
+
+                                        <input
+                                            type="text"
+                                            value={inputValue}
+                                            readOnly
+                                            className="w-24 p-2 border border-gray-300 rounded text-center bg-white text-black text-xl"
                                         />
 
                                         <button
                                             type="button"
                                             onClick={() => {
-                                                if (inventory) {
-                                                    if (inventory.InventoryQty < inventory.Max) {
-                                                        setInventory({
-                                                            ...inventory,
-                                                            InventoryQty: inventory.InventoryQty + 1,
-                                                        });
-                                                    } else {
-                                                        // แสดงข้อความเตือนเมื่อถึง Max
-                                                        Swal.fire({
-                                                            icon: 'warning',
-                                                            title: 'ยาเต็มแล้ว',
-                                                            text: 'คุณไม่สามารถเพิ่มจำนวนยาได้เนื่องจากถึงจำนวนสูงสุดแล้ว',
-                                                            showConfirmButton: true,
-                                                            confirmButtonText: 'ตกลง',
-                                                        });
-                                                    }
+                                                const current = parseInt(inputValue || "0", 10);
+                                                const next = current + 1;
+                                                if (inventory && next <= inventory.Max) {
+                                                    setInputValue(next.toString());
+                                                    setIsNewInput(false);
+                                                } else {
+                                                    Swal.fire({
+                                                        icon: "warning",
+                                                        title: `ถึงจำนวนสูงสุดแล้ว`,
+                                                        text: `ไม่สามารถเกิน ${inventory?.Max} ได้`,
+                                                    });
                                                 }
                                             }}
-                                            className="w-10 h-10 flex items-center justify-center bg-blue-500 text-white text-2xl rounded-full hover:bg-blue-600 shadow-md"
+                                            className="w-10 h-10 bg-green-500 hover:bg-green-600 text-white text-xl rounded-full flex items-center justify-center shadow-md"
                                         >
                                             +
                                         </button>
-
                                     </div>
 
-                                </div>
-                                <div className="flex justify-center gap-1">
-                                    <button
-                                        type="submit"
-                                        className="bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded"
-                                    >
-                                        {isEditMode ? "Refill" : "Add"}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        className="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded"
-                                        onClick={resetForm}
-                                    >
-                                        Cancel
-                                    </button>
+                                    <div className="grid grid-cols-3 gap-2 mt-2">
+                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
+                                            <button
+                                                key={num}
+                                                type="button"
+                                                onClick={() => {
+                                                    const newValue = isNewInput || inputValue === "0"
+                                                        ? num.toString()
+                                                        : inputValue + num.toString();
+                                                    const newNumber = parseInt(newValue, 10);
+                                                    if (inventory && newNumber <= inventory.Max) {
+                                                        setInputValue(newValue);
+                                                        setIsNewInput(false);
+                                                    } else {
+                                                        Swal.fire({
+                                                            icon: "warning",
+                                                            title: `ไม่สามารถเกิน ${inventory?.Max} ได้`,
+                                                            confirmButtonText: "ตกลง",
+                                                        });
+                                                    }
+                                                }}
+                                                className="w-16 h-12 bg-gray-200 hover:bg-gray-300 text-xl rounded"
+                                            >
+                                                {num}
+                                            </button>
+                                        ))}
 
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const newValue = isNewInput || inputValue === "0"
+                                                    ? "0"
+                                                    : inputValue + "0";
+                                                const newNumber = parseInt(newValue, 10);
+                                                if (inventory && newNumber <= inventory.Max) {
+                                                    setInputValue(newValue);
+                                                    setIsNewInput(false);
+                                                } else {
+                                                    Swal.fire({
+                                                        icon: "warning",
+                                                        title: `ไม่สามารถเกิน ${inventory?.Max} ได้`,
+                                                        confirmButtonText: "ตกลง",
+                                                    });
+                                                }
+                                            }}
+                                            className="w-16 h-12 bg-gray-200 hover:bg-gray-300 text-xl rounded col-span-2"
+                                        >
+                                            0
+                                        </button>
 
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                const newValue = inputValue.slice(0, -1) || "0";
+                                                setInputValue(newValue);
+                                                setIsNewInput(false);
+                                            }}
+                                            className="w-16 h-12 bg-red-400 hover:bg-red-500 text-white text-xl rounded"
+                                        >
+                                            ⌫
+                                        </button>
+                                    </div>
+
+                                    <div className="flex justify-center gap-2 mt-4">
+                                        {!isRefillConfirmed ? (
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    handleSubmitEdit(e as unknown as FormEvent);
+                                                    setIsRefillConfirmed(true);
+                                                }}
+                                                className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
+                                            >
+                                                Refill
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                onClick={() => inventory && sendM33Command(inventory)}
+                                                className="bg-lime-500 hover:bg-lime-600 text-white font-bold py-2 px-4 rounded"
+                                            >
+                                                Confirm
+                                            </button>
+                                        )}
+                                        <button
+                                            type="button"
+                                            onClick={resetForm}
+                                            className="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded"
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
                                 </div>
                             </form>
                         </div>

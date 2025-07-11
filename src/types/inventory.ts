@@ -1,14 +1,14 @@
 export type inventorytype = {
   id: string;
   InventoryPosition: number;
-  Min: number,
-  Max: number,
+  Min: number;
+  Max: number;
   InventoryQty: number;
   InventoryStatus: boolean;
   DrugId: string;
-  MachineId: string;
-  Expiydate:string;
-  InventoryFloor:number;
+  MachineId: string;   // ต้องมีตรงนี้
+  Expiydate: string;
+  InventoryFloor: number;
   Drug: {
     id: string;
     DrugName: string;
@@ -17,4 +17,11 @@ export type inventorytype = {
     CreatedAt: string;
     UpdatedAt: string;
   };
+};
+
+export type machinetype = {
+  id: string;
+  MachineName: string;
+  MachineStatus: string;
+  IP: string;
 };

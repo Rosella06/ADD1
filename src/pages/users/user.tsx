@@ -1,15 +1,15 @@
-import React, { useState, useEffect, useContext, ChangeEvent, useRef } from 'react';
+import React, { useState, useEffect, useContext, ChangeEvent } from 'react';
 import axios from 'axios';
 import { FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { resizeImage, Usercontext } from '../../constants/constants';
 import { contextType } from '../../types/global.type';
 import { Users } from '../../types/user.type';
 import DataTable, { TableColumn } from 'react-data-table-component';
-import { QRCodeSVG } from 'qrcode.react';
+// import { QRCodeSVG } from 'qrcode.react';
 import Swal from 'sweetalert2';
 import "../../styles/styles.css"
-import ReactToPrint from "react-to-print"
-import { RiPrinterLine } from "react-icons/ri"
+// import ReactToPrint from "react-to-print"
+// import { RiPrinterLine } from "react-icons/ri"
 import defaultImage from '../../img/user.png';
 
 const AddUser: React.FC = () => {
@@ -28,9 +28,9 @@ const AddUser: React.FC = () => {
     const { userData } = useContext(Usercontext) as contextType;
     const { token } = userData;
     const [drugImg, setDrugImg] = useState(null as File | null);
-    const [pinCode, setPinCode] = useState('');
-    const [qrModal, setQrModal] = useState(false);
-    const contentRef = useRef<SVGSVGElement>(null);
+    // const [pinCode, setPinCode] = useState('');
+    // const [qrModal, setQrModal] = useState(false);
+    // const contentRef = useRef<SVGSVGElement>(null);
     const [filteredRole, setFilteredRole] = useState('ALL');
     const [searchTerm, setSearchTerm] = useState('');
 
@@ -186,15 +186,17 @@ const AddUser: React.FC = () => {
         }
     };
 
-    const handleEdit = (user: any) => {
+    const handleEdit = (user: Users) => {
         setUserName(user.UserName);
         setDisplayName(user.DisplayName);
         setUserRole(user.UserRole);
         setUserStatus(user.UserStatus);
         setImagePreview(import.meta.env.VITE_APP_IMG + user.UserImage || null);
+        setDrugImg(null); 
         setEditingUserId(user.id);
         setShowForm(true);
     };
+
 
     const fileSelect = (e: ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files.length > 0) {
@@ -223,6 +225,7 @@ const AddUser: React.FC = () => {
         setUserStatus(false);
         setUserImageFile(null);
         setImagePreview('');
+        setDrugImg(null);
         setEditingUserId(null);
         setShowForm(false);
     };
@@ -275,8 +278,8 @@ const AddUser: React.FC = () => {
             {showForm ? (
                 <>
                     <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
-                        <div className="bg-white p-6 rounded shadow-lg w-full max-w-lg">
-                            <h2 className="text-2xl font-bold mb-4 text-blue-800">
+                        <div className="bg-white p-6 rounded shadow-lg w-full max-w-lg ">
+                            <h2 className="text-2xl font-bold mb-4 text-blue-800 ">
                                 <div className="flex justify-between items-center mb-6">
                                     {editingUserId ? 'Edit User' : 'Add New User'}
                                     <button
@@ -418,7 +421,7 @@ const AddUser: React.FC = () => {
                 </>
             ) : (
                 <div className="h-full ">
-                    <div className="card w-full h-screen p-4 bg-white shadow-xl text-blue-800 rounded-none ">
+                    <div className="card w-full h-screen p-7 bg-white shadow-xl text-blue-800 rounded-none ">
                         <div className="flex justify-between items-center ">
                             <h2 className="text-4xl font-bold">Users</h2>
                             <div className="flex items-center space-x-4">
@@ -479,7 +482,7 @@ const AddUser: React.FC = () => {
                     </div>
                 </div>
             )}
-            {qrModal && (
+            {/* {qrModal && (
                 <div className="fixed inset-0 flex items-center justify-center bg-gray-900 bg-opacity-50">
                     <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
                         <h2 className="text-lg font-bold mb-4 text-center">QR Code</h2>
@@ -505,7 +508,7 @@ const AddUser: React.FC = () => {
                     </div>
                 </div>
 
-            )}
+            )} */}
         </div>
     );
 };

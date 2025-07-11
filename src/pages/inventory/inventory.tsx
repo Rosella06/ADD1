@@ -6,7 +6,7 @@ import DataTable, { TableColumn } from "react-data-table-component";
 import Swal from "sweetalert2";
 import { FaEdit, FaPlus, FaTrash } from "react-icons/fa";
 import { drugstype } from "../../types/drugs";
-import { machinetype } from "../../types/machinetype";
+// import { machinetype } from "../../types/machinetype";
 import { inventorytype } from "../../types/inventory";
 import "../../styles/styles.css";
 
@@ -36,7 +36,7 @@ function Inventory() {
   const [inventory, setInventory] = useState<inventorytype>(initialInventory);
   const [inventoryList, setInventoryList] = useState<inventorytype[]>([]);
   const [drugList, setDrugList] = useState<drugstype[]>([]);
-  const [machine, setMachineList] = useState<machinetype[]>([]);
+  // const [machine, setMachineList] = useState<machinetype[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -49,7 +49,7 @@ function Inventory() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      await Promise.all([fetchInventory(), fetchDrugList(), fetchMachineList()]);
+      await Promise.all([fetchInventory(), fetchDrugList(),]);
     } catch (error) {
       handleError(error);
     } finally {
@@ -82,27 +82,28 @@ function Inventory() {
     }
   };
 
-  const fetchMachineList = async () => {
-    try {
-      const response = await axios.get<AxiosResponse<machinetype[]>>(
-        `${import.meta.env.VITE_APP_API}/machine`,
-        {
-          headers: { Authorization: `Bearer ${userData.token}` },
-        }
-      );
-      setMachineList(response.data.data);
-    } catch (error) {
-      handleError(error);
-    }
-  };
+  // const fetchMachineList = async () => {
+  //   try {
+  //     const response = await axios.get<AxiosResponse<machinetype[]>>(
+  //       `${import.meta.env.VITE_APP_API}/machine`,
+  //       {
+  //         headers: { Authorization: `Bearer ${userData.token}` },
+  //       }
+  //     );
+  //     setMachineList(response.data.data);
+  //   } catch (error) {
+  //     handleError(error);
+  //   }
+  // };
+const handleError = (error: unknown) => {
+  console.error("🔥 Error:", error);
+  if (error instanceof AxiosError) {
+    setErrorMessage(error.response?.data.message || "เกิดข้อผิดพลาด");
+  } else {
+    setErrorMessage("เกิดข้อผิดพลาด");
+  }
+};
 
-  const handleError = (error: unknown) => {
-    if (error instanceof AxiosError) {
-      setErrorMessage(error.response?.data.message || "เกิดข้อผิดพลาด");
-    } else {
-      setErrorMessage("เกิดข้อผิดพลาด");
-    }
-  };
 
   useEffect(() => {
     fetchData();
@@ -114,57 +115,76 @@ function Inventory() {
     setShowForm(false);
   };
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setErrorMessage("");
+const handleSubmit = async (e: FormEvent) => {
+  e.preventDefault();
+  console.log("📥 SUBMIT กำลังดำเนินการ", inventory);
 
-    // ตรวจสอบข้อมูลเบื้องต้น
-    if (
-      !inventory.InventoryPosition ||
-      !inventory.InventoryQty ||
-      !inventory.InventoryFloor ||
-      !inventory.DrugId ||
-      // !inventory.Expiydate ||
-      inventory.Min < 0 ||
-      inventory.Max <= inventory.Min
-    ) {
-      return Swal.fire({
-        icon: "error",
-        title: "กรุณากรอกข้อมูลให้ครบและถูกต้อง",
-        showConfirmButton: false,
-        timer: 1500,
-      });
-    }
+  // เช็คข้อมูลที่กรอก
+  if (
+    inventory.InventoryPosition === null || inventory.InventoryPosition === undefined ||
+    inventory.InventoryQty === null || inventory.InventoryQty === undefined ||
+    inventory.InventoryFloor === null || inventory.InventoryFloor === undefined ||
+    !inventory.DrugId ||
+    inventory.Min < 0 ||
+    inventory.Max <= inventory.Min
+  ) {
+    console.warn("⚠️ validation ไม่ผ่าน");
+    return Swal.fire({
+      icon: "error",
+      title: "กรุณากรอกข้อมูลให้ครบและถูกต้อง",
+      showConfirmButton: false,
+      timer: 1500,
+    });
+  }
 
-    try {
-      const inventoryBody = {
-        InventoryPosition: inventory.InventoryPosition,
-        InventoryQty: inventory.InventoryQty,
-        DrugId: inventory.DrugId,
-        // Expiydate: inventory.Expiydate,
-        Min: inventory.Min,
-        Max: inventory.Max,
-        InventoryFloor: inventory.InventoryFloor,
-      };
-      const response = await axios.post<AxiosResponse<inventorytype>>(
-        baseurl,
-        inventoryBody,
-        {
-          headers: { authorization: `Bearer ${userData.token}` },
-        }
-      );
-      Swal.fire({
-        icon: "success",
-        title: response.data.message,
-        showConfirmButton: false,
-        timer: 1500,
-      });
-      fetchInventory();
-      resetForm();
-    } catch (error) {
-      handleError(error);
-    }
-  };
+  // เช็คชั้นและช่องซ้ำกับข้อมูลที่มีอยู่
+  const isDuplicatePosition = inventoryList.some(item =>
+    item.InventoryFloor === inventory.InventoryFloor &&
+    item.InventoryPosition === inventory.InventoryPosition
+  );
+
+  if (isDuplicatePosition) {
+    return Swal.fire({
+      icon: "error",
+      title: "ชั้นและช่องนี้ถูกใช้ไปแล้ว",
+      showConfirmButton: false,
+      timer: 2000,
+    });
+  }
+
+  try {
+    const inventoryBody = {
+      InventoryPosition: inventory.InventoryPosition,
+      InventoryQty: inventory.InventoryQty,
+      DrugId: inventory.DrugId,
+      Min: inventory.Min,
+      Max: inventory.Max,
+      InventoryFloor: inventory.InventoryFloor,
+    };
+
+    console.log("🚀 ส่งข้อมูลไปที่ API:", inventoryBody);
+
+    const response = await axios.post(baseurl, inventoryBody, {
+      headers: { authorization: `Bearer ${userData.token}` },
+    });
+
+    console.log("✅ เพิ่มสำเร็จ", response.data);
+
+    Swal.fire({
+      icon: "success",
+      title: response.data.message,
+      showConfirmButton: false,
+      timer: 1500,
+    });
+
+    fetchInventory();
+    resetForm();
+
+  } catch (error) {
+    handleError(error);
+  }
+};
+
 
   const handleSubmitEdit = async (e: FormEvent) => {
     e.preventDefault();

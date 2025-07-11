@@ -56,8 +56,7 @@ function Settings() {
                 formData.append("fileupload", drugImg);
             }
 
-            const result: any = await axios.put(
-                `${import.meta.env.VITE_APP_API}/users/${editingUserId}`,
+            const result: any = await axios.put(`${import.meta.env.VITE_APP_API}/users/${editingUserId}`,
                 formData,
                 {
                     headers: {
@@ -87,23 +86,27 @@ function Settings() {
 
     return (
         <div className="flex flex-col items-center min-h-screen bg-gradient-to-r from-white to-white">
-            <div className="w-full max-w-2xl p-6 bg-white  rounded-lg mt-10">
-                <h1 className="text-4xl font-bold text-center text-blue-900 mb-6">Settings</h1>
+            <div className="w-full max-w-4xl p-6 bg-white rounded-lg mt-10 ">
+                <h1 className="text-4xl font-bold text-center text-blue-900 mb-8">Settings</h1>
+
                 {userData ? (
-                    <div className="flex flex-col items-center bg-white ">
+                    <div className="flex justify-center">
                         {isEditing ? (
-                             <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex justify-center items-center z-50">
-                             <div className="bg-white p-6 rounded-lg shadow-xl w-11/12 sm:w-1/2 lg:w-1/3">
-                                 <div className="flex justify-between items-center mb-6">
-                                     <h3 className="text-2xl font-bold text-center mb-4 text-blue-900">Edit User</h3>
-                                     <button
-                                         onClick={closeModal}
-                                         className="text-red-500 font-bold" > ✕
-                                     </button>
-                                 </div>
-                                    <div className="space-y-4">
+                            <div className="fixed inset-0 bg-black bg-opacity-40 flex justify-center items-center z-50">
+                                <div className="bg-white p-8 rounded-xl shadow-2xl w-full max-w-xl">
+                                    <div className="flex justify-between items-center mb-6">
+                                        <h3 className="text-2xl font-bold text-blue-900">แก้ไขข้อมูลผู้ใช้</h3>
+                                        <button
+                                            onClick={closeModal}
+                                            className="text-red-500 font-bold text-xl hover:text-red-700"
+                                        >
+                                            ✕
+                                        </button>
+                                    </div>
+
+                                    <div className="grid grid-cols-1 gap-5">
                                         <div>
-                                            <label className="block text-lg font-medium text-gray-700">Display Name:</label>
+                                            <label className="block text-lg font-medium text-gray-700">ชื่อผู้ใช้:</label>
                                             <input
                                                 type="text"
                                                 value={displayName}
@@ -111,8 +114,9 @@ function Settings() {
                                                 className="mt-1 p-2 border border-gray-300 rounded-lg w-full focus:ring focus:ring-blue-300 bg-white text-black"
                                             />
                                         </div>
+
                                         <div>
-                                            <label className="block text-lg font-medium text-gray-700">User Role:</label>
+                                            <label className="block text-lg font-medium text-gray-700">บทบาทผู้ใช้:</label>
                                             <select
                                                 value={userLevel}
                                                 onChange={(e) => setUserLevel(e.target.value)}
@@ -122,8 +126,9 @@ function Settings() {
                                                 <option value="ADMIN">ADMIN</option>
                                             </select>
                                         </div>
+
                                         <div>
-                                            <label className="block text-lg font-medium text-gray-700">User Status:</label>
+                                            <label className="block text-lg font-medium text-gray-700">สถานะผู้ใช้:</label>
                                             <select
                                                 value={userStatus ? '1' : '0'}
                                                 onChange={(e) => setUserStatus(e.target.value === '1')}
@@ -133,58 +138,73 @@ function Settings() {
                                                 <option value="0">ปิดใช้งาน</option>
                                             </select>
                                         </div>
+
                                         <div>
-                                            <label className="block text-lg font-medium text-gray-700">User Image:</label>
+                                            <label className="block text-lg font-medium text-gray-700">รูปภาพผู้ใช้:</label>
                                             <input
                                                 type="file"
                                                 accept="image/*"
                                                 onChange={fileSelect}
-                                                className="mt-1 p-2 border border-gray-300 rounded-lg w-full focus:ring focus:ring-blue-300 bg-white text-black"
+                                                className="mt-1 p-2 border border-gray-300  w-full focus:ring  bg-white text-black"
                                             />
                                             {imagePreview && (
-                                                <img src={imagePreview} alt="Preview" className="mt-4 rounded-lg h-32 w-auto" />
+                                                <img
+                                                    src={imagePreview}
+                                                    alt="Preview"
+                                                    className="mt-4 rounded-lg h-32 w-auto mx-auto"
+                                                />
                                             )}
                                         </div>
                                     </div>
-                                    <div className="flex justify-end mt-6 space-x-4">
+
+                                    <div className="flex justify-end mt-6">
                                         <button
                                             onClick={handleSave}
-                                            className="bg-green-500 hover:bg-green-600 text-white font-semibold px-4 py-2 rounded-lg"
+                                            className="bg-green-600 hover:bg-green-700 text-white font-semibold px-6 py-2 rounded-lg transition duration-200"
                                         >
-                                            Update
+                                            บันทึกข้อมูล
                                         </button>
                                     </div>
                                 </div>
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center bg-white p-6 border border-gray-200 rounded-lg shadow-lg w-80">
+                            <div className="flex flex-col items-center p-6 border border-gray-200 rounded-xl shadow-md w-full max-w-sm bg-white">
                                 {userData.userImage && (
                                     <img
                                         src={`${import.meta.env.VITE_APP_IMG}${userData.userImage}`}
-                                        alt="User Profile"
-                                        className="rounded-full h-32 w-32 mb-4"
+                                        alt="User"
+                                        className="rounded-full h-32 w-32 mb-4 object-cover "
                                     />
                                 )}
-                                <div className="text-center">
-                                    <p className="text-lg font-semibold text-gray-800">Display Name: {userData.displayName}</p>
-                                    <p className="text-md text-gray-600">User Level: {userData.userRole}</p>
-                                    <p className="text-md text-gray-600">User Status: {userData.userStatus ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}</p>
+                                <div className="text-center space-y-2">
+                                    <p className="text-lg font-semibold text-gray-800">ชื่อ: {userData.displayName}</p>
+                                    <p className="text-md text-gray-600">บทบาท: {userData.userRole}</p>
+                                    <p className="text-md text-gray-600">
+                                        สถานะ:{" "}
+                                        <span
+                                            className={`font-bold ${userData.userStatus ? "text-green-600" : "text-red-500"
+                                                }`}
+                                        >
+                                            {userData.userStatus ? "เปิดใช้งาน" : "ปิดใช้งาน"}
+                                        </span>
+                                    </p>
                                 </div>
                                 <button
                                     onClick={handleEdit}
-                                    className="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg"
+                                    className="mt-6 bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-2 rounded-lg transition duration-200"
                                 >
-                                    Edit Profile
+                                    แก้ไขโปรไฟล์
                                 </button>
                             </div>
                         )}
                     </div>
                 ) : (
-                    <p>Loading user data...</p>
+                    <p className="text-center">กำลังโหลดข้อมูลผู้ใช้...</p>
                 )}
             </div>
         </div>
     );
 }
+
 
 export default Settings;

@@ -12,8 +12,10 @@ import Home from './pages/card/home';
 import Hometime from './pages/time';
 import Homs from './pages/homs';
 import Refill from './pages/inventory/Refill';
-import Machinc from './pages/Machinc';
+import Machinc from './Machine/Machinc';
 import Drugs from './pages/drugs/drugs';
+import SelectMachine from './Machine/selectmachine';
+// import SelectMachine from './Machine/selectmachine';
 
 const router = createBrowserRouter([
   {
@@ -24,8 +26,13 @@ const router = createBrowserRouter([
         path: "/",
         element: <Wrapper />,
         children: [
+      
+            {
+              path: "/",
+              element: <SelectMachine />
+            },
           {
-            path: "/",
+            path: "/Home",
             element: <Home />
           },
           {
@@ -48,19 +55,19 @@ const router = createBrowserRouter([
             },
             {
               path: "Hometime",
-              element: <Hometime/>
+              element: <Hometime />
             },
             {
               path: "Machinc",
-              element: <Machinc/>
+              element: <Machinc />
             },
             {
               path: "Homs",
-              element: <Homs/>
+              element: <Homs />
             },
-               {
+            {
               path: "Drugs",
-              element: <Drugs/>
+              element: <Drugs />
             },
             {
               path: "Refill",

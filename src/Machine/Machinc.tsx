@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useContext } from 'react';
 import axios, { AxiosError } from 'axios';
-import {  FaTrash, FaPlus } from 'react-icons/fa';
+import {  FaTrash, FaPlus, FaEdit } from 'react-icons/fa';
 import DataTable, { TableColumn } from 'react-data-table-component';
 import { Usercontext } from '../constants/constants';
 import { machinetype } from '../types/machinetype';
@@ -8,22 +8,17 @@ import Swal from 'sweetalert2';
 import { contextType } from '../types/global.type';
 
 function Machine() {
-  // State สำหรับฟอร์ม
   const [machine, setMachine] = useState({ MachineName: '', MachineStatus: '1', IP: '' });
-  // State สำหรับรายการทั้งหมด
   const [machines, setMachines] = useState<machinetype[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  // ดึง token จาก context
   const { userData } = useContext(Usercontext) as contextType;
 
   const [isEditMode, setIsEditMode] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [selectedMachine, setSelectedMachine] = useState<machinetype | null>(null);
-
-  // ฟังก์ชันดึงข้อมูลเครื่องจักรจาก backend
   const fetchMachine = async () => {
+    
     setLoading(true);
     try {
       const response = await axios.get(`${import.meta.env.VITE_APP_API}/machine`, {
@@ -41,25 +36,11 @@ function Machine() {
       setLoading(false);
     }
   };
-
-  // เรียกดึงข้อมูลเมื่อ component โหลดครั้งแรก
   useEffect(() => {
     fetchMachine();
   }, []);
 
-  // // กดแก้ไขเครื่องจักร -> ดึงข้อมูลใส่ฟอร์ม
-  // const editMachine = (machine: machinetype) => {
-  //   setSelectedMachine(machine);
-  //   setMachine({
-  //     MachineName: machine.MachineName,
-  //     MachineStatus: machine.MachineStatus,
-  //     IP: machine.IP,
-  //   });
-  //   setIsEditMode(true);
-  //   setShowForm(true);
-  // };
 
-  // ลบเครื่องจักร
   const deleteMachine = async (id: string) => {
     Swal.fire({
       title: "คุณต้องการลบรายการหรือไม่?",
@@ -96,8 +77,6 @@ function Machine() {
       }
     });
   };
-
-  // ส่งฟอร์มเพิ่ม/แก้ไขเครื่องจักร
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const baseurl = `${import.meta.env.VITE_APP_API}/machine`;
@@ -108,7 +87,6 @@ function Machine() {
         const data = { MachineName, MachineStatus, IP };
 
         if (isEditMode && selectedMachine) {
-          // PUT อัพเดตเครื่องจักร
           await axios.put(`${baseurl}/${selectedMachine.id}`, data, {
             headers: {
               Authorization: `Bearer ${userData.token}`,
@@ -116,7 +94,6 @@ function Machine() {
             },
           });
         } else {
-          // POST เพิ่มเครื่องจักรใหม่
           await axios.post(baseurl, data, {
             headers: {
               Authorization: `Bearer ${userData.token}`,
@@ -124,8 +101,6 @@ function Machine() {
             },
           });
         }
-
-        // รีเซ็ตฟอร์มและปิด modal
         setMachine({ MachineName: '', MachineStatus: '1', IP: '' });
         setIsEditMode(false);
         setShowForm(false);
@@ -154,6 +129,16 @@ function Machine() {
       });
     }
   };
+const editMachine = (machine: machinetype) => {
+  setSelectedMachine(machine);
+  setMachine({
+    MachineName: machine.MachineName,
+    MachineStatus: machine.MachineStatus,
+    IP: machine.IP,
+  });
+  setIsEditMode(true);
+  setShowForm(true);
+};
 
   const columns: TableColumn<machinetype>[] = [
     {
@@ -191,9 +176,9 @@ function Machine() {
       name: 'จัดการ',
       cell: (item) => (
         <div className="flex space-x-3 text-xl">
-          {/* <button onClick={() => editMachine(item)} className="text-yellow-500 hover:text-yellow-700">
+          <button onClick={() => editMachine(item)} className="text-yellow-500 hover:text-yellow-700">
             <FaEdit />
-          </button> */}
+          </button>
           <button onClick={() => deleteMachine(item.id)} className="text-red-500 hover:text-red-700">
             <FaTrash />
           </button>
@@ -204,7 +189,7 @@ function Machine() {
 
   return (
     <div className="flex flex-col items-center py-0 bg-gray-100">
-      <div className="card w-full h-screen p-4 bg-white shadow-xl text-blue-800 rounded-none">
+      <div className="card w-full h-screen p-7 bg-white shadow-xl text-blue-800 rounded-none">
         <div className="flex justify-between items-center">
           <div className="text-4xl font-bold">Machine</div>
           <div className="flex items-center">
@@ -212,7 +197,6 @@ function Machine() {
               type="text"
               placeholder="ค้นหาชื่อเครื่อง..."
               className="input border-gray-300 focus:border-blue-500 focus:ring focus:ring-blue-200 rounded-lg mr-2 bg-white"
-              // คุณอาจเพิ่ม onChange สำหรับค้นหาได้ในอนาคต
             />
             <button
               onClick={() => {

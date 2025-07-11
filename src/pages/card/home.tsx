@@ -18,6 +18,7 @@ export default function Home() {
 
   useEffect(() => {
     document.addEventListener('keypress', onBarcodeScan);
+    return () => document.removeEventListener('keypress', onBarcodeScan);
   }, []);
 
   const onBarcodeScan = async (e: KeyboardEvent) => {
@@ -29,12 +30,25 @@ export default function Home() {
     }
   };
 
-  const fetchDataQr = async (path: string) => {
+  const fetchDataQr = async (url: string) => {
     try {
-      const response = await axios.get(path, {
-        headers: { Authorization: `Bearer ${token}` },
+      const machineId = localStorage.getItem('selectedMachineId');
+      console.log('👉 POST URL:', url);
+      console.log('📦 Body:', { machineId });
+
+      const response = await axios.post(url, { machineId }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
       });
-      setOrder(response.data.data);
+
+      console.log('✅ Response:', response.data);
+      if (response.data?.data) {
+        setOrder(response.data.data);
+      } else {
+        console.warn('❗ ไม่มีข้อมูลใน response.data');
+      }
       setQr('');
     } catch (error: unknown) {
       if (error instanceof AxiosError) {
@@ -53,10 +67,11 @@ export default function Home() {
     }
   };
 
+
   const fetchData = async () => {
     try {
       const response = await axios.get<AxiosResponse<orderType[]>>(`${import.meta.env.VITE_APP_API}/orders`, {
-        headers: { authorization: `Bearer ${userData.token}` }
+        headers: { authorization: `Bearer ${token}` }
       });
       setOrder(response.data.data.filter((items) => items.OrderStatus !== '4'));
     } catch (error) {
@@ -70,13 +85,16 @@ export default function Home() {
 
 
   useEffect(() => {
-    if (qr !== '') {
-      if (qr.length === 1) {
-        fetchDataQr(`${import.meta.env.VITE_APP_API}/orders/dispense/${qr}`);
-        // fetchDataQr(`${import.meta.env.VITE_APP_API}/orders/dispense/${qr}?id=${id}`);
-      } else {
-        fetchDataQr(`${import.meta.env.VITE_APP_API}/orders/receive/${qr}`);
-      }
+    if (!qr) return;
+
+    if (qr.length === 1) {
+    
+      fetchDataQr(`${import.meta.env.VITE_APP_API}/orders/dispense/${qr}`);
+    } else if (order.length > 0 && order[0]?.PrescriptionId) {
+ 
+      fetchDataQr(`${import.meta.env.VITE_APP_API}/orders/status/complete/${qr}/${order[0].PrescriptionId}`);
+    } else {
+      console.warn('⚠️ ข้าม fetchDataQr เพราะไม่มี order[0]');
     }
   }, [qr]);
 
@@ -84,16 +102,21 @@ export default function Home() {
     fetchData();
   }, [socketData]);
 
+
   useEffect(() => {
     socket.on('res_message', (response) => {
       setSocketData(response);
     });
+
+    return () => {
+      socket.off('res_message');
+    };
   }, []);
 
   const clearOrders = async () => {
     try {
       const response = await axios.get<AxiosResponse<orderType>>(`${import.meta.env.VITE_APP_API}/orders/clear`, {
-        headers: { authorization: `Bearer ${userData.token}` }
+        headers: { authorization: `Bearer ${token}` }
       });
       Swal.fire({
         icon: "success",
@@ -101,7 +124,6 @@ export default function Home() {
         showConfirmButton: false,
         timer: 1500,
       });
-
       window.location.reload();
     } catch (error) {
       if (error instanceof AxiosError) {
@@ -112,14 +134,10 @@ export default function Home() {
     }
   };
 
-
-
-
   return (
     <>
       <Queuedetails queueData={order} clearOrders={clearOrders} />
       <span>{qr}</span>
     </>
   );
-
 }
