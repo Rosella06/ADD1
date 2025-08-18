@@ -9,13 +9,15 @@ import Inventory from './pages/inventory/inventory';
 import AddUser from './pages/users/user';
 import Settings from './pages/users/Settings';
 import Home from './pages/card/home';
-import Hometime from './pages/time';
+// import Hometime from './pages/time';
 import Homs from './pages/homs';
 import Refill from './pages/inventory/Refill';
 import Machinc from './Machine/Machinc';
 import Drugs from './pages/drugs/drugs';
 import SelectMachine from './Machine/selectmachine';
-// import SelectMachine from './Machine/selectmachine';
+import Testtools from './testtools';
+import DispensingReport from './pages/report/Report';
+
 
 const router = createBrowserRouter([
   {
@@ -26,11 +28,10 @@ const router = createBrowserRouter([
         path: "/",
         element: <Wrapper />,
         children: [
-      
-            {
-              path: "/",
-              element: <SelectMachine />
-            },
+          {
+            path: "/",
+            element: <SelectMachine />
+          },
           {
             path: "/Home",
             element: <Home />
@@ -53,10 +54,10 @@ const router = createBrowserRouter([
               path: "settings",
               element: <Settings />
             },
-            {
-              path: "Hometime",
-              element: <Hometime />
-            },
+            // {
+            //   path: "Hometime",
+            //   element: <Hometime />
+            // },
             {
               path: "Machinc",
               element: <Machinc />
@@ -72,7 +73,15 @@ const router = createBrowserRouter([
             {
               path: "Refill",
               element: <Refill />
-            }
+            },
+            {
+              path: "DispensingReport",
+              element: <DispensingReport />
+            },
+            {
+              path: "Testtools",
+              element: <Testtools />
+            },
             ]
           }
 

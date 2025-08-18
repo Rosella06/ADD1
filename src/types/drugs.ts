@@ -1,7 +1,9 @@
-export type drugstype ={
+export type drugstype = {
     id: string,
-    DrugName: string,
-    DrugStatus: boolean,
-    DrugImage?: string,
-   Drugcode:string
+    drugName: string,
+    drugStatus: boolean,
+    drugImage?: string,
+    drugCode: string,
+    createdAt: string,
+    updatedAt: string,
 }

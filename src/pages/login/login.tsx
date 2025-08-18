@@ -67,19 +67,19 @@ const [currentDateTime, setCurrentDateTime] = useState("");
     }
     const [userData, setUserData] = useState({
         userName: "",
-        passWord: "",
+        userPassword: "",
     });
 
     const navigate = useNavigate();
 
     const handleSignIn = async (e: FormEvent) => {
         e.preventDefault();
-        const { userName, passWord } = userData;
-        if (userName && passWord) {
+        const { userName, userPassword } = userData;
+        if (userName && userPassword) {
             try {
                 const response = await axios.post<AxiosResponse<UserLogin>>(baseurl, {
-                    UserName: userName,
-                    UserPassword: passWord
+                    userName: userName,
+                    userPassword: userPassword
                 });
 
 
@@ -167,8 +167,8 @@ const [currentDateTime, setCurrentDateTime] = useState("");
                                 className="input input-bordered w-full pl-12 py-3 placeholder-gray-500 text-gray-700 bg-transparent border-gray-300 focus:ring-2 focus:ring-blue-400 focus:border-blue-500"
                                 placeholder="กรอกรหัสผ่าน"
                                 type="password"
-                                value={userData.passWord}
-                                onChange={(e) => setUserData({ ...userData, passWord: e.target.value })}
+                                value={userData.userPassword}
+                                onChange={(e) => setUserData({ ...userData, userPassword: e.target.value })}
                                 aria-label="Password"
                             />
                         </div>

@@ -1,12 +1,12 @@
 import logo from "../../img/6.png";
-import { orderType } from "../../types/orderType";
+import { ordersType } from "../../types/orderType";
 import Queuecard from "./queuecard";
 import { IoMdLogOut } from 'react-icons/io';
 import cookies from 'js-cookie';
 import { useNavigate } from 'react-router-dom';
 import Swal from 'sweetalert2';
 import { contextType } from "../../types/global.type";
-import { useContext, useEffect, useState} from "react";
+import { useContext, useEffect, useState } from "react";
 import { Usercontext } from "../../constants/constants";
 import defaultImage from '../../img/user.png';
 import DataTable, { TableColumn } from "react-data-table-component";
@@ -15,7 +15,7 @@ import axios from "axios";
 import { io } from "socket.io-client";
 
 type queuelistType = {
-  queueData?: orderType[];
+  queueData?: ordersType[];
   clearOrders: () => void;
 };
 
@@ -27,12 +27,17 @@ export default function Queuedetails({ queueData = [], clearOrders }: queuelistT
   const [filteredPrescriptionList] = useState<Prescription[]>([]);
   const [plcErrors, setPlcErrors] = useState<{ status: string; message: string; command: string; timestamp: string }[]>([]);
   const [plcLogs, setPlcLogs] = useState<string[]>([]);
+  const [plcFinishedTask, setPlcFinishedTask] = useState<{
+    status: string;
+    message: string;
+    timestamp: string;
+    machineId: string;
+  } | null>(null);
 
   const handleLogout = () => {
     cookies.remove('userData');
     navigate('/login');
     Swal.fire({
-      // icon: 'success',
       title: 'Logged out',
       text: 'You have been logged out successfully.',
     });
@@ -44,43 +49,64 @@ export default function Queuedetails({ queueData = [], clearOrders }: queuelistT
     socket.on("connect", () => {
       console.log("✅ Connected to socket");
     });
-socket.on("plc-error", (data) => {
-  console.warn("📛 PLC Error Received:", data);
-  setPlcErrors((prev) => [...prev, data]);
 
-  const errorCodesToAlert = ['02','03','04','05','06','07','08','09','10','11','12','13','14'];
-  const match = data.message.match(/-> (\d{2})/); // หารหัสสถานะจากข้อความ เช่น -> 03
-  const code = match?.[1];
+    socket.on("plc-error", (data) => {
+      console.warn("📛 PLC Error Received:", data);
+      setPlcErrors((prev) => [...prev, data]);
 
-  if (code && errorCodesToAlert.includes(code)) {
-    Swal.fire({
-      icon: 'error',
-      title: `เกิดข้อผิดพลาดจากเครื่อง (${code})`,
-      html: `
-        <p><strong>${data.message}</strong></p>
-        <p class="mt-2">กรุณากด <span class="font-bold text-blue-600">รีบูตระบบ</span> หรือติดต่อช่าง</p>
-      `,
-      showCancelButton: true,
-      confirmButtonText: 'รีบูตระบบ',
-      cancelButtonText: 'ปิด',
-      confirmButtonColor: '#0ea5e9',
-    }).then((result) => {
-      if (result.isConfirmed) {
-        sendM30Command(); 
+      const errorCodesToAlert = ['02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12', '13', '14'];
+      const match = data.message.match(/-> (\d{2})/);
+      const code = match?.[1];
+
+      if (code && errorCodesToAlert.includes(code)) {
+        Swal.fire({
+          icon: 'error',
+          title: `เกิดข้อผิดพลาดจากเครื่อง (${code})`,
+          html: `
+            <p><strong>${data.message}</strong></p>
+            <p class="mt-2">กรุณากด <span class="font-bold text-blue-600">รีบูตระบบ</span> หรือติดต่อช่าง</p>
+          `,
+          showCancelButton: true,
+          confirmButtonText: 'รีบูตระบบ',
+          cancelButtonText: 'ปิด',
+          confirmButtonColor: '#0ea5e9',
+        }).then((result) => {
+          if (result.isConfirmed) {
+            sendM30Command();
+          }
+        });
       }
     });
-  }
-});
-
 
     socket.on("plc-log", (msg: string) => {
-      setPlcLogs((prev) => [...prev.slice(-19), msg]); 
+      setPlcLogs((prev) => [...prev.slice(-19), msg]);
+    });
+
+    socket.on("plc-finish-task", (data) => {
+      console.log("✅ Finish Task from PLC:", data);
+      setPlcFinishedTask(data);
+
+      Swal.fire({
+        icon: "success",
+        title: "ทำงานเสร็จแล้ว",
+        html: `<strong>${data.message}</strong><br/>เครื่อง: ${data.machineId}`,
+        timer: 2500,
+        showConfirmButton: false,
+      });
     });
 
     return () => {
       socket.close();
     };
   }, []);
+
+  // Auto clear finish message after 5s
+  useEffect(() => {
+    if (plcFinishedTask) {
+      const timer = setTimeout(() => setPlcFinishedTask(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [plcFinishedTask]);
 
   const sendM30Command = async () => {
     try {
@@ -130,7 +156,7 @@ socket.on("plc-error", (data) => {
     },
     {
       name: 'Order Status',
-      selector: row => row.Order[0]?.OrderStatus || 'N/A',
+      selector: row => row.Order[0]?.status || 'N/A',
       sortable: true,
     },
     {
@@ -178,6 +204,14 @@ socket.on("plc-error", (data) => {
       )}
 
       <main className="flex-grow h-screen pt-[30px] px-2">
+        {plcFinishedTask && (
+          <div className="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 m-4 rounded shadow-md">
+            ✅ <strong>{plcFinishedTask.message}</strong><br />
+            📅 {new Date(plcFinishedTask.timestamp).toLocaleString()}<br />
+            🏭 เครื่อง: {plcFinishedTask.machineId}
+          </div>
+        )}
+
         {plcErrors.length > 0 && (
           <div className="p-6">
             <h2 className="text-2xl font-semibold text-red-600 mb-3"> ข้อผิดพลาดจากตู้ADD </h2>
@@ -192,7 +226,6 @@ socket.on("plc-error", (data) => {
           </div>
         )}
 
-      
         {plcLogs.length > 0 && (
           <div className="p-6 pt-0">
             <h2 className="text-2xl font-semibold text-gray-700 mb-3">📄 รายงานจาก PLC</h2>
@@ -203,6 +236,7 @@ socket.on("plc-error", (data) => {
             </div>
           </div>
         )}
+
         {Array.isArray(queueData) && queueData.length > 0 ? (
           <>
             <span className="flex justify-center text-8xl font-extrabold text-yellow-400 py-12 bg-gradient-to-r from-blue-900 to-blue-700 text-transparent bg-clip-text">
@@ -273,5 +307,3 @@ socket.on("plc-error", (data) => {
     </div>
   );
 }
-
-

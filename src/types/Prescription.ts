@@ -1,4 +1,4 @@
-import { orderType } from "./orderType";
+import { ordersType } from "./orderType";
 import { Users } from "./user.type";
 
 export type Prescription = {
@@ -15,6 +15,6 @@ export type Prescription = {
   UsedByUserId: string;
   CreatedAt: Date;
   UpdatedAt: Date;
-  Order: orderType[]; 
+  Order: ordersType[]; 
   UsedBy: Users;   
 };

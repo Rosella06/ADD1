@@ -10,7 +10,7 @@ export type UserLogin = {
 export type AddUsers = {
     userName: string;
     userPassword: string;
-    userPincode: string;
+  
     displayName: string;
     userRole: string;
     userStatus: boolean;
@@ -21,12 +21,13 @@ export type AddUsers = {
 
 export type Users = {
     id: string,
-    UserName: string,
-    DisplayName: string,
-    UserImage?: string,
-    UserRole: string,
-    UserStatus: boolean,
-    CreateBy: string,
-    CreatedAt: string,
-    UpdatedAt: string
+    userName: string,
+    displayName: string,
+    userImage?: string,
+    userRole: string,
+    userStatus: boolean,
+    createBy: string,
+    createdAt: string,
+    updatedAt: string
+   
 }

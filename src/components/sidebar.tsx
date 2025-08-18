@@ -12,23 +12,25 @@ import { contextType } from '../types/global.type';
 import userIcon from '../img/1.png';
 import { FaFileContract, FaPrescriptionBottleAlt } from 'react-icons/fa';
 import { GiMedicinePills, GiVendingMachine } from "react-icons/gi";
+import { HiOutlineClipboardList } from "react-icons/hi";
 function SidebarLayout() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const { userData } = useContext(Usercontext) as contextType;
+  const localtion = useLocation()
 
   // const canSeeDispense = true; 
 
-const handleLogout = () => {
-  cookies.remove('userData'); 
-  localStorage.removeItem('selectedMachineId'); 
-  navigate('/login');
-  Swal.fire({
-    icon: 'success',
-    title: 'Logged out',
-    text: 'You have been logged out successfully.',
-  });
-};
+  const handleLogout = () => {
+    cookies.remove('userData');
+    localStorage.removeItem('selectedMachineId');
+    navigate('/login');
+    Swal.fire({
+      icon: 'success',
+      title: 'Logged out',
+      text: 'You have been logged out successfully.',
+    });
+  };
 
 
   if (pathname === '/login') {
@@ -36,8 +38,9 @@ const handleLogout = () => {
   }
 
   return (
-    <div className="flex flex-col h-[1920px]">
-      {userData.userRole === "ADMIN" && (
+    <div className={`flex flex-col ${localtion.pathname !== "/testtools" ? "h-[1920px]" : "h-screen"}`}>
+      {
+        localtion.pathname !== "/testtools" &&
         <header className="w-full bg-blue-900 text-white fixed top-0 left-0 z-10">
           <div className="w-full px-5 py-3  ">
             <span className="text-4xl font-bold ">ADD</span>
@@ -45,16 +48,19 @@ const handleLogout = () => {
           <div className="flex items-center justify-between px-5 py-4">
             <nav className="flex-grow flex justify-center py-1">
               <ul className="flex space-x-2">
+                {/* เมนู Home */}
                 <li>
                   <Link
                     to="/Home"
-                    className={`flex flex-col items-center space-y-2 p-3 transition-colors duration-300 ${pathname === "/" ? "text-yellow-400" : ""
+                    className={`flex flex-col items-center space-y-2 p-3 transition-colors duration-300 ${pathname === "/Home" ? "text-yellow-400" : ""
                       }`}
                   >
                     <FaFileContract className="text-6xl" />
                     <span className="text-2xl">Dispense</span>
                   </Link>
                 </li>
+
+                {/* เมนู Refill */}
                 <li>
                   <Link
                     to="/Refill"
@@ -65,57 +71,74 @@ const handleLogout = () => {
                     <span className="text-2xl">Refill</span>
                   </Link>
                 </li>
-                <li>
-                  <Link
-                    to="/Drugs"
-                    className={`flex flex-col items-center space-y-2 p-3 transition-colors duration-300 ${pathname === "/Drugs" ? "text-yellow-400" : ""
-                      }`}
-                  >
-                    <GiMedicinePills className="text-6xl" />
-                    <span className="text-2xl">Drugs</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/inventory"
-                    className={`flex flex-col items-center space-y-2 p-3 transition-colors duration-300 ${pathname === "/inventory" ? "text-yellow-400" : ""
-                      }`}
-                  >
-                    <BiArchive className="text-6xl" />
-                    <span className="text-2xl">Inventory</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/Machinc"
-                    className={`flex flex-col items-center space-y-2 p-3 transition-colors duration-300 ${pathname === "/Machinc" ? "text-yellow-400" : ""
-                      }`}
-                  >
-                    <GiVendingMachine className="text-6xl" />
-                    <span className="text-2xl">Machine</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/adduser"
-                    className={`flex flex-col items-center space-y-2 p-3 transition-colors duration-300 ${pathname === "/adduser" ? "text-yellow-400" : ""
-                      }`}
-                  >
-                    <IoIosPersonAdd className="text-6xl" />
-                    <span className="text-2xl">User</span>
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/settings"
-                    className={`flex flex-col items-center space-y-2 p-3 transition-colors duration-300 ${pathname === "/settings" ? "text-yellow-400" : ""
-                      }`}
-                  >
-                    <IoSettingsOutline className="text-6xl" />
-                    <span className="text-2xl">Settings</span>
-                  </Link>
-                </li>
+
+                {/* เฉพาะ ADMIN เท่านั้นที่เห็นเมนูด้านล่างนี้ */}
+                {userData.userRole === "ADMIN" && (
+                  <>
+                    <li>
+                      <Link
+                        to="/Drugs"
+                        className={`flex flex-col items-center space-y-2 p-3 transition-colors duration-300 ${pathname === "/Drugs" ? "text-yellow-400" : ""
+                          }`}
+                      >
+                        <GiMedicinePills className="text-6xl" />
+                        <span className="text-2xl">Drugs</span>
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/inventory"
+                        className={`flex flex-col items-center space-y-2 p-3 transition-colors duration-300 ${pathname === "/inventory" ? "text-yellow-400" : ""
+                          }`}
+                      >
+                        <BiArchive className="text-6xl" />
+                        <span className="text-2xl">Inventory</span>
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/Machinc"
+                        className={`flex flex-col items-center space-y-2 p-3 transition-colors duration-300 ${pathname === "/Machinc" ? "text-yellow-400" : ""
+                          }`}
+                      >
+                        <GiVendingMachine className="text-6xl" />
+                        <span className="text-2xl">Machine</span>
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/adduser"
+                        className={`flex flex-col items-center space-y-2 p-3 transition-colors duration-300 ${pathname === "/adduser" ? "text-yellow-400" : ""
+                          }`}
+                      >
+                        <IoIosPersonAdd className="text-6xl" />
+                        <span className="text-2xl">User</span>
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/DispensingReport"
+                        className={`flex flex-col items-center space-y-2 p-3 transition-colors duration-300 ${pathname === "/DispensingReport" ? "text-yellow-400" : ""
+                          }`}
+                      >
+                        <HiOutlineClipboardList className="text-6xl" />
+                        <span className="text-2xl">Report</span>
+                      </Link>
+                    </li>
+                    <li>
+                      <Link
+                        to="/settings"
+                        className={`flex flex-col items-center space-y-2 p-3 transition-colors duration-300 ${pathname === "/settings" ? "text-yellow-400" : ""
+                          }`}
+                      >
+                        <IoSettingsOutline className="text-6xl" />
+                        <span className="text-2xl">Settings</span>
+                      </Link>
+                    </li>
+                  </>
+                )}
               </ul>
+
             </nav>
 
             <div className="flex flex-col items-center space-y-2 ml-auto">
@@ -147,10 +170,9 @@ const handleLogout = () => {
             </div>
           </div>
         </header>
+      }
 
-      )}
-
-      <main className="lex-grow pt-[224px] overflow-hidden">
+      <main className={`${localtion.pathname !== "/testtools" ? "lex-grow pt-[224px] overflow-hidden" : "h-screen"}`}>
         <Outlet />
       </main>
     </div>

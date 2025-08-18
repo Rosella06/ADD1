@@ -1,27 +1,27 @@
 export type inventorytype = {
-  id: string;
-  InventoryPosition: number;
-  Min: number;
-  Max: number;
-  InventoryQty: number;
-  InventoryStatus: boolean;
-  DrugId: string;
-  MachineId: string;   // ต้องมีตรงนี้
-  Expiydate: string;
-  InventoryFloor: number;
-  Drug: {
+ id: string
+  floor: number
+  position: number
+  quantity: number
+  min: number
+  max: number
+  status: boolean
+  expiryDate: string
+  drugId: string
+  machineId: string
+  drug: {
     id: string;
-    DrugName: string;
-    DrugStatus: boolean;
-    DrugImage?: string;
-    CreatedAt: string;
-    UpdatedAt: string;
+    drugName: string;
+    drugStatus: boolean;
+    drugImage?: string;
+    createdAt: string;
+    updatedAt: string;
   };
 };
 
 export type machinetype = {
   id: string;
-  MachineName: string;
-  MachineStatus: string;
-  IP: string;
+  machineName: string;
+  status: string;
+  ipAddress: string;
 };

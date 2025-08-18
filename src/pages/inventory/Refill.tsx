@@ -1,34 +1,38 @@
 import { FormEvent, useContext, useEffect, useState } from "react";
 import axios, { AxiosError } from "axios";
+import { FaBoxes, FaChevronLeft, FaChevronRight, FaSearch } from "react-icons/fa";
+import Swal from "sweetalert2";
+import DataTable, { TableColumn } from "react-data-table-component";
+
 import { Usercontext } from "../../constants/constants";
 import { AxiosResponse, contextType } from "../../types/global.type";
-import DataTable, { TableColumn } from "react-data-table-component";
-import Swal from "sweetalert2";
-import { drugstype } from "../../types/drugs";
-import { machinetype } from "../../types/machinetype";
+
 import { inventorytype } from "../../types/inventory";
 import "../../styles/styles.css";
+
+// หน้านี้ไม่ได้ใช้ drugList และ machineList แต่คง fetch data ไว้เผื่ออนาคต
+// import { machinetype } from "../../types/machinetype";
+
 
 function Refill() {
     const { userData } = useContext(Usercontext) as contextType;
     const [inventory, setInventory] = useState<inventorytype>();
     const [inventoryList, setInventoryList] = useState<inventorytype[]>([]);
-    const [, setDrugList] = useState<drugstype[]>([]);
-    const [, setMachineList] = useState<machinetype[]>([]);
     const [showForm, setShowForm] = useState(false);
     const [isRefillConfirmed, setIsRefillConfirmed] = useState(false);
-    const [, setLoading] = useState(true);
+    const [loading, setLoading] = useState(true);
     const [, setErrorMessage] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
-    const [inputValue, setInputValue] = useState("");
+    const [inputValue, setInputValue] = useState("0");
     const [isNewInput, setIsNewInput] = useState(true);
 
     const baseurl = `${import.meta.env.VITE_APP_API}/inventory`;
 
+    // --- Data Fetching ---
     const fetchData = async () => {
+        setLoading(true);
         try {
-            setLoading(true);
-            await Promise.all([fetchInventory(), fetchDrugList(), fetchMachineList()]);
+            await fetchInventory();
         } catch (error) {
             handleError(error);
         } finally {
@@ -50,360 +54,246 @@ function Refill() {
             handleError(error);
         }
     };
-
+    
+    // อัปเดต state `inventory` เมื่อ `inputValue` เปลี่ยน
     useEffect(() => {
         if (inventory) {
             const qty = parseInt(inputValue || "0", 10);
             if (!isNaN(qty)) {
-                setInventory({
-                    ...inventory,
-                    InventoryQty: qty,
-                });
+                setInventory({ ...inventory, quantity: qty });
             }
         }
-    }, [inputValue]);
+    }, [inputValue, inventory]);
 
-    const fetchDrugList = async () => {
-        try {
-            const response = await axios.get<AxiosResponse<drugstype[]>>(`${import.meta.env.VITE_APP_API}/drugs`, {
-                headers: { Authorization: `Bearer ${userData.token}` },
-            });
-            setDrugList(response.data.data);
-        } catch (error) {
-            handleError(error);
-        }
-    };
 
-    const fetchMachineList = async () => {
-        try {
-            const response = await axios.get<AxiosResponse<machinetype[]>>(`${import.meta.env.VITE_APP_API}/machine`, {
-                headers: { Authorization: `Bearer ${userData.token}` },
-            });
-            setMachineList(response.data.data);
-        } catch (error) {
-            handleError(error);
-        }
-    };
-
+    // --- Handlers ---
     const handleError = (error: unknown) => {
         const message =
-            error instanceof AxiosError
-                ? error.response?.data.message || "เกิดข้อผิดพลาด"
-                : "เกิดข้อผิดพลาด";
-
+            error instanceof AxiosError ? error.response?.data.message : "เกิดข้อผิดพลาดที่ไม่รู้จัก";
         setErrorMessage(message);
-        Swal.fire({
-            icon: "error",
-            title: message,
-            showConfirmButton: false,
-            timer: 1500,
-        });
+        Swal.fire({ icon: "error", title: "ผิดพลาด", text: message });
     };
 
-    const editStock = (item: inventorytype) => {
+    const handleRefillClick = (item: inventorytype) => {
         setInventory(item);
-        setInputValue(item.InventoryQty.toString());
+        setInputValue(item.quantity.toString());
         setIsNewInput(true);
         setIsRefillConfirmed(false);
         setShowForm(true);
     };
 
-    const handleSubmitEdit = async (e: FormEvent) => {
+    // ขั้นตอนที่ 1: กดปุ่ม "จ่ายยา" (Refill)
+    const handleRefillSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        setErrorMessage("");
+        if (!inventory) return;
 
         try {
-            const { InventoryQty, id, InventoryFloor, InventoryPosition } = inventory || {};
+            const { quantity, id, floor, position } = inventory;
+            const machineId = localStorage.getItem("selectedMachineId");
+            if (!machineId) return Swal.fire({ icon: "error", title: "ไม่พบ Machine ID", text: "กรุณาเลือกเครื่องจักรก่อน" });
 
-            if (InventoryQty !== undefined && InventoryFloor !== undefined && InventoryPosition !== undefined) {
-                const machineId = localStorage.getItem("selectedMachineId");
-                if (!machineId) return showError("ไม่พบ selectedMachineId กรุณาเลือกเครื่องก่อน");
+            // 1. Update Stock ใน DB
+            await axios.put(`${baseurl}/stock/${id}`, { quantity }, {
+                headers: { authorization: `Bearer ${userData.token}` },
+            });
 
-                const inventoryBody = { InventoryQty };
-                const requestUrl = `${baseurl}/stock/${id}`;
-                await axios.put<AxiosResponse<inventorytype>>(requestUrl, inventoryBody, {
-                    headers: { authorization: `Bearer ${userData.token}` },
-                });
+            // 2. ส่งคำสั่ง M32 ไปที่ PLC
+            await axios.post(`${import.meta.env.VITE_APP_API}/plc/sendM`, {
+                command: "M32", floor: floor, position: Number(position), qty: quantity, machineId,
+            }, {
+                headers: { authorization: `Bearer ${userData.token}` },
+            });
 
-                await axios.post(
-                    `${import.meta.env.VITE_APP_API}/plc/sendM`,
-                    {
-                        command: "M32",
-                        floor: InventoryFloor,
-                        position: Number(InventoryPosition),
-                        qty: InventoryQty,
-                        machineId,
-                    },
-                    {
-                        headers: { authorization: `Bearer ${userData.token}` },
-                    }
-                );
+            console.log("🔵 (Step 1) Sent M32 Command:", { floor: floor, position: position, qty: quantity });
+            setIsRefillConfirmed(true); // เปลี่ยน State เพื่อไปยังขั้นตอนที่ 2
+            fetchInventory(); // โหลดข้อมูลใหม่เพื่ออัปเดตตารางด้านหลัง
 
-                fetchInventory();
-            } else {
-                showError("กรุณากรอกข้อมูลให้ครบ");
-            }
         } catch (error) {
             handleError(error);
         }
     };
 
-    const sendM33Command = async (item: inventorytype) => {
+    // ขั้นตอนที่ 2: กดปุ่ม "ยืนยันการนำยาออก" (Confirm)
+    const handleConfirmSubmit = async () => {
+        if (!inventory) return;
+        
         try {
             const machineId = localStorage.getItem("selectedMachineId");
-            if (!machineId) return showError("ไม่พบ selectedMachineId กรุณาเลือกเครื่องก่อน");
+            if (!machineId) return Swal.fire({ icon: "error", title: "ไม่พบ Machine ID" });
 
-            await axios.post(
-                `${import.meta.env.VITE_APP_API}/plc/sendM`,
-                {
-                    command: "m33",
-                    machineId,
-                    inventoryId: item.id,
-                },
-                {
-                    headers: { authorization: `Bearer ${userData.token}` },
-                }
-            );
-
-            fetchInventory();
+            // ส่งคำสั่ง M33 ไปที่ PLC
+            await axios.post(`${import.meta.env.VITE_APP_API}/plc/sendM`, {
+                command: "m33", machineId, inventoryId: inventory.id,
+            }, {
+                headers: { authorization: `Bearer ${userData.token}` },
+            });
+            
+            console.log("🟢 (Step 2) Sent M33 Command:", { inventoryId: inventory.id });
+            Swal.fire({ icon: "success", title: "สำเร็จ", text: "กระบวนการเติมยาเสร็จสิ้น", showConfirmButton: false, timer: 2000 });
             resetForm();
+
         } catch (error) {
             handleError(error);
         }
-    };
-
-    const showError = (message: string) => {
-        Swal.fire({
-            icon: "error",
-            title: message,
-            showConfirmButton: false,
-            timer: 1500,
-        });
     };
 
     const resetForm = () => {
-        setInventory(undefined);
         setShowForm(false);
-        setIsRefillConfirmed(false);
+        setTimeout(() => {
+            setInventory(undefined);
+            setIsRefillConfirmed(false);
+            setInputValue("0");
+        }, 300); // หน่วงเวลาเล็กน้อยเพื่อให้ animation ปิด modal ทำงาน
     };
 
-    const filteredInventoryList = inventoryList.filter((item) =>
-        item.Drug.DrugName.toLowerCase().includes(searchTerm.toLowerCase())
+    // --- Numpad Logic ---
+    const handleNumpadInput = (numStr: string) => {
+        if (isRefillConfirmed) return; // ถ้ายืนยันแล้ว ไม่ให้แก้ไข
+
+        const currentVal = isNewInput || inputValue === "0" ? "" : inputValue;
+        const newValue = currentVal + numStr;
+        
+        if (inventory && parseInt(newValue, 10) > inventory.max) {
+            Swal.fire({ icon: "warning", title: "จำนวนเกิน", text: `ไม่สามารถเติมยาเกินจำนวนสูงสุดที่ ${inventory.max} ชิ้น` });
+        } else {
+            setInputValue(newValue);
+            setIsNewInput(false);
+        }
+    };
+
+    const handleNumpadAction = (action: 'inc' | 'dec' | 'del') => {
+        if (isRefillConfirmed) return;
+        
+        const currentNum = parseInt(inputValue || "0", 10);
+        if (action === 'inc' && inventory && currentNum < inventory.max) setInputValue((currentNum + 1).toString());
+        if (action === 'dec' && currentNum > 0) setInputValue((currentNum - 1).toString());
+        if (action === 'del') setInputValue(inputValue.slice(0, -1) || "0");
+        setIsNewInput(false);
+    }
+    
+    // --- Table & Filtering ---
+    const filteredInventoryList = inventoryList.filter(item =>
+        item.drug.drugName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        item.drugId.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
     const columnsStock: TableColumn<inventorytype>[] = [
-        { name: "InventoryFloor", selector: (row) => row.InventoryFloor, sortable: true },
-        { name: "InventoryPosition", selector: (row) => row.InventoryPosition, sortable: true },
-        { name: "DrugName", selector: (row) => row.Drug.DrugName, sortable: true },
-        { name: "InventoryQty", selector: (row) => row.InventoryQty, sortable: true },
-        { name: "Min", selector: (row) => row.Min, sortable: true },
-        { name: "Max", selector: (row) => row.Max, sortable: true },
+        { name: "ชั้น", selector: row => row.floor, sortable: true, width: "80px" },
+        { name: "ช่อง", selector: row => row.position, sortable: true, width: "80px" },
+        { name: "ชื่อยา", selector: row => row.drug.drugName, sortable: true, grow: 2 },
+        { name: "คงเหลือ", selector: row => row.quantity, sortable: true, center: true },
+        { name: "Min/Max", selector: row => `${row.min}/${row.max}`, sortable: true, center: true },
         {
-            name: "Actions",
-            cell: (item) => (
+            name: "สถานะ", center: true,
+            cell: row => (
+                <span className={`px-3 py-1 text-xs font-semibold rounded-full ${
+                    row.quantity <= row.min ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
+                }`}>
+                    {row.quantity <= row.min ? 'ต้องเติม' : 'ปกติ'}
+                </span>
+            )
+        },
+        {
+            name: "จัดการ", center: true,
+            cell: item => (
                 <button
-                    onClick={() => editStock(item)}
-                    className="btn bg-sky-400 text-white hover:bg-cyan-500 transition duration-300 px-3 h-10 text-sm"
+                    onClick={() => handleRefillClick(item)}
+                    className="btn btn-sm btn-info text-white"
                 >
-                    เติมยา
+                    <FaBoxes /> เติมยา
                 </button>
             ),
-            sortable: false,
-            width: "100px",
-            wrap: true,
         },
     ];
 
     return (
-        <div>
-            <div className="card w-full h-screen p-7 bg-white shadow-xl text-blue-800 rounded-none">
-                <div className="flex justify-between items-center">
-                    <h2 className="text-4xl font-bold">Stock</h2>
-                    <input
-                        type="text"
-                        placeholder="ค้นหาชื่อยา..."
-                        className="input w-full max-w-xs border-2 border-gray-300 h-12 bg-white"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                    />
+        <div className="flex flex-col items-center pt-10 bg-white min-h-screen">
+             {loading && (
+                <div className="fixed inset-0 bg-white bg-opacity-75 flex justify-center items-center z-[100]">
+                    <span className="loading loading-spinner loading-lg text-blue-600"></span>
                 </div>
-
-                <div className="divider mt-2"></div>
-
-                <div className="h-full w-full overflow-x-auto flex-grow bg-white text-black">
+            )}
+            <div className="w-full max-w-7xl mx-auto ">
+                <div className="p-6">
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+                        <h2 className="text-3xl font-bold text-gray-800">เติมยา</h2>
+                        <div className="relative w-full md:w-80">
+                            <input
+                                type="text"
+                                placeholder="ค้นหาชื่อยา หรือรหัสยา..."
+                                className="input input-bordered w-full bg-white pl-10"
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                            />
+                            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"/>
+                        </div>
+                    </div>
                     <DataTable
                         columns={columnsStock}
                         data={filteredInventoryList}
-                        paginationPerPage={15}
-                        pagination
-                        paginationRowsPerPageOptions={[6, 10, 15, 20]}
-                        responsive
-                        customStyles={{
-                            table: { style: { width: "100%", tableLayout: "fixed" } },
-                            headRow: { style: { backgroundColor: "#f1f5f9" } },
-                            cells: { style: { padding: "10px", borderBottom: "1px solid #e5e7eb" } },
-                        }}
+                        pagination paginationPerPage={10}
+                        paginationRowsPerPageOptions={[10, 15, 20]}
+                        responsive highlightOnHover
+                        conditionalRowStyles={[{
+                            when: row => row.quantity <= row.min,
+                            style: { backgroundColor: '#FFF1F2', '&:hover': { backgroundColor: '#FFE4E6 !important' } },
+                        }]}
                     />
                 </div>
-
-                {showForm && (
-                    <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex justify-center items-center z-50">
-                        <div className="bg-white p-6 rounded-lg shadow-lg w-full md:w-1/2">
-                            <form onSubmit={handleSubmitEdit}>
-                                <label className="text-2xl font-bold text-black text-center p-4 block">
-                                    ชื่อยา: {inventory?.Drug.DrugName}
-                                </label>
-
-                                {isRefillConfirmed && (
-                                    <p className="text-green-600 text-center mb-4 font-semibold">
-                                        กรุณากด Confirm เพื่อยืนยันการเติมยา
-                                    </p>
-                                )}
-
-                                <div className="flex flex-col items-center space-y-2 mb-4">
-                                    <div className="flex items-center space-x-2 mb-4">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const current = parseInt(inputValue || "0", 10);
-                                                const prev = current - 1;
-                                                if (prev >= 0) {
-                                                    setInputValue(prev.toString());
-                                                    setIsNewInput(false);
-                                                }
-                                            }}
-                                            className="w-10 h-10 bg-red-500 hover:bg-red-600 text-white text-xl rounded-full flex items-center justify-center shadow-md"
-                                        >
-                                            -
-                                        </button>
-
-                                        <input
-                                            type="text"
-                                            value={inputValue}
-                                            readOnly
-                                            className="w-24 p-2 border border-gray-300 rounded text-center bg-white text-black text-xl"
-                                        />
-
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const current = parseInt(inputValue || "0", 10);
-                                                const next = current + 1;
-                                                if (inventory && next <= inventory.Max) {
-                                                    setInputValue(next.toString());
-                                                    setIsNewInput(false);
-                                                } else {
-                                                    Swal.fire({
-                                                        icon: "warning",
-                                                        title: `ถึงจำนวนสูงสุดแล้ว`,
-                                                        text: `ไม่สามารถเกิน ${inventory?.Max} ได้`,
-                                                    });
-                                                }
-                                            }}
-                                            className="w-10 h-10 bg-green-500 hover:bg-green-600 text-white text-xl rounded-full flex items-center justify-center shadow-md"
-                                        >
-                                            +
-                                        </button>
-                                    </div>
-
-                                    <div className="grid grid-cols-3 gap-2 mt-2">
-                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((num) => (
-                                            <button
-                                                key={num}
-                                                type="button"
-                                                onClick={() => {
-                                                    const newValue = isNewInput || inputValue === "0"
-                                                        ? num.toString()
-                                                        : inputValue + num.toString();
-                                                    const newNumber = parseInt(newValue, 10);
-                                                    if (inventory && newNumber <= inventory.Max) {
-                                                        setInputValue(newValue);
-                                                        setIsNewInput(false);
-                                                    } else {
-                                                        Swal.fire({
-                                                            icon: "warning",
-                                                            title: `ไม่สามารถเกิน ${inventory?.Max} ได้`,
-                                                            confirmButtonText: "ตกลง",
-                                                        });
-                                                    }
-                                                }}
-                                                className="w-16 h-12 bg-gray-200 hover:bg-gray-300 text-xl rounded"
-                                            >
-                                                {num}
-                                            </button>
-                                        ))}
-
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const newValue = isNewInput || inputValue === "0"
-                                                    ? "0"
-                                                    : inputValue + "0";
-                                                const newNumber = parseInt(newValue, 10);
-                                                if (inventory && newNumber <= inventory.Max) {
-                                                    setInputValue(newValue);
-                                                    setIsNewInput(false);
-                                                } else {
-                                                    Swal.fire({
-                                                        icon: "warning",
-                                                        title: `ไม่สามารถเกิน ${inventory?.Max} ได้`,
-                                                        confirmButtonText: "ตกลง",
-                                                    });
-                                                }
-                                            }}
-                                            className="w-16 h-12 bg-gray-200 hover:bg-gray-300 text-xl rounded col-span-2"
-                                        >
-                                            0
-                                        </button>
-
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                const newValue = inputValue.slice(0, -1) || "0";
-                                                setInputValue(newValue);
-                                                setIsNewInput(false);
-                                            }}
-                                            className="w-16 h-12 bg-red-400 hover:bg-red-500 text-white text-xl rounded"
-                                        >
-                                            ⌫
-                                        </button>
-                                    </div>
-
-                                    <div className="flex justify-center gap-2 mt-4">
-                                        {!isRefillConfirmed ? (
-                                            <button
-                                                type="button"
-                                                onClick={(e) => {
-                                                    handleSubmitEdit(e as unknown as FormEvent);
-                                                    setIsRefillConfirmed(true);
-                                                }}
-                                                className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded"
-                                            >
-                                                Refill
-                                            </button>
-                                        ) : (
-                                            <button
-                                                type="button"
-                                                onClick={() => inventory && sendM33Command(inventory)}
-                                                className="bg-lime-500 hover:bg-lime-600 text-white font-bold py-2 px-4 rounded"
-                                            >
-                                                Confirm
-                                            </button>
-                                        )}
-                                        <button
-                                            type="button"
-                                            onClick={resetForm}
-                                            className="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded"
-                                        >
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                )}
             </div>
+
+            {/* Modal Form */}
+            {showForm && inventory && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+                    <form onSubmit={handleRefillSubmit} className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md transform transition-all text-center">
+                        <fieldset disabled={isRefillConfirmed}>
+                            <h3 className="text-sm font-semibold text-gray-500">เติมยาสำหรับ</h3>
+                            <h2 className="text-2xl font-bold text-gray-800 mt-1">{inventory.drug.drugName}</h2>
+                            <p className="text-gray-600">ชั้น {inventory.floor}, ช่อง {inventory.position} (สูงสุด: {inventory.max} ชิ้น)</p>
+
+                            <div className="my-6">
+                                <div className="relative inline-flex items-center">
+                                    <button type="button" onClick={() => handleNumpadAction('dec')} className="btn btn-ghost btn-circle"><FaChevronLeft/></button>
+                                    <input
+                                        type="text"
+                                        value={inputValue}
+                                        readOnly
+                                        className="w-32 h-16 text-5xl font-bold text-center bg-transparent text-blue-600 focus:outline-none"
+                                    />
+                                    <button type="button" onClick={() => handleNumpadAction('inc')} className="btn btn-ghost btn-circle"><FaChevronRight/></button>
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-3 gap-2 w-64 mx-auto">
+                                {[1, 2, 3, 4, 5, 6, 7, 8, 9].map(num =>
+                                    <button key={num} type="button" onClick={() => handleNumpadInput(num.toString())} className="btn btn-lg btn-ghost text-2xl">{num}</button>
+                                )}
+                                <button type="button" onClick={() => handleNumpadAction('del')} className="btn btn-lg btn-ghost text-error">⌫</button>
+                                <button type="button" onClick={() => handleNumpadInput('0')} className="btn btn-lg btn-ghost text-2xl">0</button>
+                                <button type="button" onClick={() => setInputValue(inventory.max.toString())} className="btn btn-lg btn-ghost text-info">MAX</button>
+                            </div>
+                        </fieldset>
+
+                        <div className="mt-8 pt-4 border-t">
+                            {isRefillConfirmed ? (
+                                <>
+                                    <p className="text-green-600 font-semibold mb-3">✅ จำนวนยาถูกต้องหรือไม่<br/>กรุณากดยืนยัน เมื่อเติมยาเสร็จ</p>
+                                    <button type="button" onClick={handleConfirmSubmit} className="btn btn-success w-full text-white">
+                                        ยืนยันการเติมยา(Confirm)
+                                    </button>
+                                </>
+                            ) : (
+                                <button type="submit" className="btn btn-primary w-full">
+                                    จ่ายยา (Refill)
+                                </button>
+                            )}
+                            <button type="button" onClick={resetForm} className="btn btn-ghost mt-2 w-full">
+                                ยกเลิก
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            )}
         </div>
     );
 }

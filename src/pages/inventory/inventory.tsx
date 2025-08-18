@@ -6,50 +6,47 @@ import DataTable, { TableColumn } from "react-data-table-component";
 import Swal from "sweetalert2";
 import { FaEdit, FaPlus, FaTrash } from "react-icons/fa";
 import { drugstype } from "../../types/drugs";
-// import { machinetype } from "../../types/machinetype";
 import { inventorytype } from "../../types/inventory";
 import "../../styles/styles.css";
 
-
 const initialInventory: inventorytype = {
   id: "",
-  InventoryPosition: 0,
-  Min: 0,
-  Max: 0,
-  InventoryQty: 0,
-  InventoryStatus: true,
-  DrugId: "",
-  MachineId: "",
-  Expiydate: "",
-  InventoryFloor: 0,
-  Drug: {
+  floor: 1,
+  position: 1,
+  quantity: 1,
+  min: 1,
+  max: 99,
+  status: true,
+  expiryDate: "",
+  drugId: "",
+  machineId: "",
+  drug: {
     id: "",
-    DrugName: "",
-    DrugStatus: true,
-    DrugImage: "",
-    CreatedAt: "",
-    UpdatedAt: ""
-  }
+    drugName: "",
+    drugStatus: true,
+    drugImage: "",
+    createdAt: "",
+    updatedAt: "",
+  },
 };
+
 function Inventory() {
   const { userData } = useContext(Usercontext) as contextType;
   const [inventory, setInventory] = useState<inventorytype>(initialInventory);
   const [inventoryList, setInventoryList] = useState<inventorytype[]>([]);
   const [drugList, setDrugList] = useState<drugstype[]>([]);
-  // const [machine, setMachineList] = useState<machinetype[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
-  const baseurl = `${import.meta.env.VITE_APP_API}/inventory`;
-  // const [isManual, setIsManual] = useState(false);
+  const baseurl = `${import.meta.env.VITE_APP_API}/inventories`;
 
-  // ดึงข้อมูลทั้งหมด (Inventory, Drug list, Machine list)
+  // ดึงข้อมูลทั้งหมด
   const fetchData = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      await Promise.all([fetchInventory(), fetchDrugList(),]);
+      await Promise.all([fetchInventory(), fetchDrugList()]);
     } catch (error) {
       handleError(error);
     } finally {
@@ -59,9 +56,10 @@ function Inventory() {
 
   const fetchInventory = async () => {
     try {
-      const response = await axios.get<AxiosResponse<inventorytype[]>>(baseurl, {
-        headers: { authorization: `Bearer ${userData.token}` },
-      });
+      const response = await axios.get<AxiosResponse<inventorytype[]>>(
+        baseurl,
+        { headers: { authorization: `Bearer ${userData.token}` } }
+      );
       setInventoryList(response.data.data);
     } catch (error) {
       handleError(error);
@@ -72,9 +70,7 @@ function Inventory() {
     try {
       const response = await axios.get<AxiosResponse<drugstype[]>>(
         `${import.meta.env.VITE_APP_API}/drugs`,
-        {
-          headers: { Authorization: `Bearer ${userData.token}` },
-        }
+        { headers: { Authorization: `Bearer ${userData.token}` } }
       );
       setDrugList(response.data.data);
     } catch (error) {
@@ -82,28 +78,15 @@ function Inventory() {
     }
   };
 
-  // const fetchMachineList = async () => {
-  //   try {
-  //     const response = await axios.get<AxiosResponse<machinetype[]>>(
-  //       `${import.meta.env.VITE_APP_API}/machine`,
-  //       {
-  //         headers: { Authorization: `Bearer ${userData.token}` },
-  //       }
-  //     );
-  //     setMachineList(response.data.data);
-  //   } catch (error) {
-  //     handleError(error);
-  //   }
-  // };
-const handleError = (error: unknown) => {
-  console.error("🔥 Error:", error);
-  if (error instanceof AxiosError) {
-    setErrorMessage(error.response?.data.message || "เกิดข้อผิดพลาด");
-  } else {
-    setErrorMessage("เกิดข้อผิดพลาด");
-  }
-};
-
+  const handleError = (error: unknown) => {
+    console.error("🔥 Error:", error);
+    const message =
+      error instanceof AxiosError
+        ? error.response?.data.message
+        : "เกิดข้อผิดพลาดที่ไม่รู้จัก";
+    setErrorMessage(message);
+    Swal.fire({ icon: "error", title: "ผิดพลาด", text: message });
+  };
 
   useEffect(() => {
     fetchData();
@@ -113,124 +96,62 @@ const handleError = (error: unknown) => {
     setInventory(initialInventory);
     setIsEditMode(false);
     setShowForm(false);
+    setErrorMessage("");
   };
 
-const handleSubmit = async (e: FormEvent) => {
-  e.preventDefault();
-  console.log("📥 SUBMIT กำลังดำเนินการ", inventory);
-
-  // เช็คข้อมูลที่กรอก
-  if (
-    inventory.InventoryPosition === null || inventory.InventoryPosition === undefined ||
-    inventory.InventoryQty === null || inventory.InventoryQty === undefined ||
-    inventory.InventoryFloor === null || inventory.InventoryFloor === undefined ||
-    !inventory.DrugId ||
-    inventory.Min < 0 ||
-    inventory.Max <= inventory.Min
-  ) {
-    console.warn("⚠️ validation ไม่ผ่าน");
-    return Swal.fire({
-      icon: "error",
-      title: "กรุณากรอกข้อมูลให้ครบและถูกต้อง",
-      showConfirmButton: false,
-      timer: 1500,
-    });
-  }
-
-  // เช็คชั้นและช่องซ้ำกับข้อมูลที่มีอยู่
-  const isDuplicatePosition = inventoryList.some(item =>
-    item.InventoryFloor === inventory.InventoryFloor &&
-    item.InventoryPosition === inventory.InventoryPosition
-  );
-
-  if (isDuplicatePosition) {
-    return Swal.fire({
-      icon: "error",
-      title: "ชั้นและช่องนี้ถูกใช้ไปแล้ว",
-      showConfirmButton: false,
-      timer: 2000,
-    });
-  }
-
-  try {
-    const inventoryBody = {
-      InventoryPosition: inventory.InventoryPosition,
-      InventoryQty: inventory.InventoryQty,
-      DrugId: inventory.DrugId,
-      Min: inventory.Min,
-      Max: inventory.Max,
-      InventoryFloor: inventory.InventoryFloor,
-    };
-
-    console.log("🚀 ส่งข้อมูลไปที่ API:", inventoryBody);
-
-    const response = await axios.post(baseurl, inventoryBody, {
-      headers: { authorization: `Bearer ${userData.token}` },
-    });
-
-    console.log("✅ เพิ่มสำเร็จ", response.data);
-
-    Swal.fire({
-      icon: "success",
-      title: response.data.message,
-      showConfirmButton: false,
-      timer: 1500,
-    });
-
-    fetchInventory();
-    resetForm();
-
-  } catch (error) {
-    handleError(error);
-  }
-};
-
-
-  const handleSubmitEdit = async (e: FormEvent) => {
-    e.preventDefault();
-    setErrorMessage("");
-
+  // ฟังก์ชันสำหรับ validate ข้อมูลฟอร์ม
+  const validateForm = () => {
     if (
-      !inventory.id ||
-      !inventory.InventoryPosition ||
-      !inventory.InventoryQty ||
-      !inventory.InventoryFloor ||
-      // !inventory.Expiydate ||
-      !inventory.DrugId ||
-      inventory.Min < 0 ||
-      inventory.Max <= inventory.Min
+      inventory.floor < 1 || inventory.floor > 7 ||
+      inventory.position < 1 || inventory.position > 12
     ) {
-      return Swal.fire({
-        icon: "error",
-        title: "กรุณากรอกข้อมูลให้ครบและถูกต้อง",
-        showConfirmButton: false,
-        timer: 1500,
-      });
+      Swal.fire({ icon: "error", title: "ข้อมูลไม่ถูกต้อง", text: "กรุณากรอกชั้น (1-7) และช่อง (1-12)" });
+      return false;
     }
+    if (!inventory.drugId) {
+      Swal.fire({ icon: "error", title: "ข้อมูลไม่ครบถ้วน", text: "กรุณาเลือกยา" });
+      return false;
+    }
+    if (inventory.min < 0 || inventory.max <= inventory.min) {
+      Swal.fire({ icon: "error", title: "ข้อมูลไม่ถูกต้อง", text: "ค่า Max ต้องมากกว่า Min และ Min ต้องไม่ติดลบ" });
+      return false;
+    }
+
+
+    const isDuplicate = inventoryList.some(item =>
+      item.floor === inventory.floor &&
+      item.position === inventory.position &&
+      item.id !== inventory.id 
+    );
+
+    if (isDuplicate) {
+      Swal.fire({ icon: "error", title: "ตำแหน่งซ้ำ", text: `ชั้น ${inventory.floor} ช่อง ${inventory.position} ถูกใช้ไปแล้ว` });
+      return false;
+    }
+
+    return true;
+  }
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
 
     try {
       const inventoryBody = {
-        InventoryPosition: inventory.InventoryPosition,
-        InventoryQty: inventory.InventoryQty,
-        DrugId: inventory.DrugId,
-        // Expiydate: inventory.Expiydate,
-        Min: inventory.Min,
-        Max: inventory.Max,
-        InventoryFloor: inventory.InventoryFloor,
+        position: inventory.position,
+        quantity: inventory.quantity,
+        drugId: inventory.drugId,
+        min: inventory.min,
+        max: inventory.max,
+        floor: inventory.floor,
+        
       };
-      const response = await axios.put<AxiosResponse<inventorytype>>(
-        `${baseurl}/${inventory.id}`,
-        inventoryBody,
-        {
-          headers: { authorization: `Bearer ${userData.token}` },
-        }
-      );
-      Swal.fire({
-        icon: "success",
-        title: response.data.message,
-        showConfirmButton: false,
-        timer: 1500,
+
+
+      const response = await axios.post(baseurl, inventoryBody, {
+        headers: { authorization: `Bearer ${userData.token}` },
       });
+      Swal.fire({ icon: "success", title: response.data.message, showConfirmButton: false, timer: 1500 });
       fetchInventory();
       resetForm();
     } catch (error) {
@@ -238,31 +159,54 @@ const handleSubmit = async (e: FormEvent) => {
     }
   };
 
-  const deleteInventory = async (id: string) => {
+  const handleSubmitEdit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!validateForm()) return;
+
+    try {
+      const inventoryBody = {
+        InventoryPosition: inventory.position,
+        InventoryQty: inventory.quantity,
+        DrugId: inventory.drugId,
+        Min: inventory.min,
+        Max: inventory.max,
+        InventoryFloor: inventory.floor,
+ 
+      };
+
+      const response = await axios.put<AxiosResponse<inventorytype>>(
+        `${baseurl}/${inventory.id}`,
+        inventoryBody,
+        { headers: { authorization: `Bearer ${userData.token}` } }
+      );
+      Swal.fire({ icon: "success", title: response.data.message, showConfirmButton: false, timer: 1500 });
+      fetchInventory();
+      resetForm();
+    } catch (error) {
+      handleError(error);
+    }
+  };
+
+  const deleteInventory = (id: string) => {
     Swal.fire({
-      title: "คุณต้องการลบหรือไม่?",
+      title: "คุณแน่ใจหรือไม่?",
+      text: "การกระทำนี้ไม่สามารถย้อนกลับได้",
       icon: "warning",
       showCancelButton: true,
       confirmButtonColor: "#d33",
-      cancelButtonColor: "#3085d6",
-      confirmButtonText: "ลบ",
+      cancelButtonColor: "#6b7280",
+      confirmButtonText: "ใช่, ลบเลย",
       cancelButtonText: "ยกเลิก",
     }).then(async (result) => {
       if (result.isConfirmed) {
         try {
           const response = await axios.delete<AxiosResponse<inventorytype>>(
             `${baseurl}/${id}`,
-            {
-              headers: { authorization: `Bearer ${userData.token}` },
-            }
+            { headers: { authorization: `Bearer ${userData.token}` } }
           );
-          Swal.fire({
-            icon: "success",
-            title: response.data.message,
-            showConfirmButton: false,
-            timer: 1500,
-          });
+          Swal.fire({ icon: "success", title: "ลบสำเร็จ!", text: response.data.message, showConfirmButton: false, timer: 1500 });
           fetchInventory();
+          resetForm(); 
         } catch (error) {
           handleError(error);
         }
@@ -270,315 +214,215 @@ const handleSubmit = async (e: FormEvent) => {
     });
   };
 
-  const editInventory = (item: inventorytype) => {
+  const handleEditClick = (item: inventorytype) => {
     setInventory(item);
     setIsEditMode(true);
     setShowForm(true);
   };
 
+  const handleAddClick = () => {
+    resetForm();
+    setIsEditMode(false);
+    setShowForm(true);
+  }
+
   const columnsInventory: TableColumn<inventorytype>[] = [
+    { name: "ชั้น", selector: (row) => row.floor, sortable: true, width: "80px", },
+    { name: "ช่อง", selector: (row) => row.position, sortable: true, width: "80px", },
+    { name: "รหัสยา", selector: (row) => row.drugId, sortable: true, },
+    { name: "ชื่อยา", selector: (row) => row.drug.drugName, sortable: true, grow: 2, },
+    { name: "จำนวน", selector: (row) => row.quantity, sortable: true, center: true, },
+    { name: "Min/Max", selector: (row) => `${row.min}/${row.max}`, sortable: true, center: true, },
     {
-      name: "Floor",
-      selector: (row) => row.InventoryFloor,
+      name: "สถานะ",
       sortable: true,
+      center: true,
+      cell: (row) => {
+        let color = "text-green-600";
+        let text = "ปกติ";
+        if (row.quantity <= 0) {
+          color = "text-red-600";
+          text = "หมด";
+        } else if (row.quantity <= row.min) {
+          color = "text-orange-500";
+          text = "ใกล้หมด";
+        }
+        return (
+          <div className={`flex items-center gap-2 font-semibold ${color}`}>
+            <span>●</span>
+            <span>{text}</span>
+          </div>
+        );
+      },
     },
     {
-      name: "Position",
-      selector: (row) => row.InventoryPosition,
-      sortable: true,
-    },
-    // {
-    //   name: "DrugImage",
-    //   cell: (item) => (
-    //     <img
-    //       src={
-    //         item.Drug.DrugImage && item.Drug.DrugImage.trim() !== ""
-    //           ? `${import.meta.env.VITE_APP_IMG}${item.Drug.DrugImage}`
-    //           : defaultImage
-    //       }
-    //       alt="drugimg"
-    //       className="rounded-md text-center object-contain h-20 w-60"
-    //     />
-    //   ),
-    //   sortable: false,
-    // },
-    {
-      name: "DrugId",
-      selector: (row) => row.DrugId,
-      sortable: true,
-    },
-    {
-      name: "DrugName",
-      selector: (row) => row.Drug.DrugName,
-      sortable: true,
-    },
-    {
-      name: "Qty",
-      selector: (row) => row.InventoryQty,
-      sortable: true,
-    },
-    {
-      name: "Min",
-      selector: (row) => row.Min,
-      sortable: true,
-    },
-    {
-      name: "Max",
-      selector: (row) => row.Max,
-      sortable: true,
-    },
-    // {
-    //   name: "วันหมดอายุ",
-    //   selector: (row) => row.Expiydate,
-    //   sortable: true,
-    // },
-    {
-      name: "Actions",
+      name: "จัดการ",
+      center: true,
       cell: (item) => (
-        <div className="flex space-x-4 text-2xl justify-center">
-          <button onClick={() => editInventory(item)} className="text-yellow-400">
+        <div className="flex space-x-4 text-lg justify-center">
+          <button onClick={() => handleEditClick(item)} className="text-blue-500 hover:text-blue-700 transition-colors">
             <FaEdit />
           </button>
-          <button onClick={() => deleteInventory(item.id)} className="text-red-600">
+          <button onClick={() => deleteInventory(item.id)} className="text-red-500 hover:text-red-700 transition-colors">
             <FaTrash />
           </button>
         </div>
       ),
-      ignoreRowClick: true,
-      allowOverflow: true,
-      button: true,
     },
   ];
 
+  // กรองข้อมูลตามการค้นหา
   const filteredInventoryList = inventoryList.filter(
     (item) =>
-      item.Drug.DrugName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.InventoryPosition.toString().includes(searchTerm)
+      item.drug.drugName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.drugId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.floor.toString().includes(searchTerm) ||
+      item.position.toString().includes(searchTerm)
   );
 
   return (
-    <div className="flex flex-col items-center py-4 bg-gray-100 w-full">
+    <div className="flex flex-col items-center pt-10  bg-white  min-h-screen">
       {loading && (
-        <div className="loading-wrapper">
-          <span className="loading loading-ball loading-xs"></span>
-          <span className="loading loading-ball loading-sm"></span>
-          <span className="loading loading-ball loading-md"></span>
-          <span className="loading loading-ball loading-lg"></span>
+        <div className="fixed inset-0 bg-white bg-opacity-75 flex justify-center items-center z-[100]">
+          <span className="loading loading-spinner loading-lg text-blue-600"></span>
         </div>
       )}
-      <div className="card w-full h-screen p-4 bg-white shadow-xl text-blue-800 rounded-none">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-4xl font-bold">Inventory</h2>
-          <div className="flex items-center space-x-2">
-            <input
-              type="text"
-              placeholder="ค้นหาชื่อยา..."
-              className="input w-full max-w-xs border-2 border-gray-300 h-12 bg-white"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+      <div className="w-full max-w-7xl mx-auto bg-white  ">
+        <div className="p-6">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+            <h2 className="text-3xl font-bold text-gray-800">จัดการคลังยา (Inventory)</h2>
+            <div className="flex items-center gap-2 w-full md:w-auto">
+              <input
+                type="text"
+                placeholder="ค้นหา (ชื่อยา, รหัส, ชั้น, ช่อง)..."
+                className="input input-bordered w-full md:w-80 bg-white"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+              <button onClick={handleAddClick} className="btn btn-primary">
+                <FaPlus />
+                เพิ่ม
+              </button>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto">
+            <DataTable
+              columns={columnsInventory}
+              data={filteredInventoryList}
+              pagination
+              paginationPerPage={10}
+              paginationRowsPerPageOptions={[10, 15, 20]}
+              responsive
+              highlightOnHover
+              defaultSortFieldId={1} // Sort by Floor by default
             />
-            <button
-              onClick={() => {
-                resetForm();
-                setShowForm(true);
-              }}
-              className="btn bg-green-500 text-white hover:bg-green-400 transition duration-300 h-12 flex items-center"
-            >
-              <FaPlus />
-            </button>
           </div>
         </div>
-        <div className="divider my-2"></div>
-        <div className="h-full w-full overflow-x-auto flex-grow bg-white text-black">
-          <DataTable
-            columns={columnsInventory}
-            data={filteredInventoryList}
-            pagination
-            paginationPerPage={15}
-            paginationRowsPerPageOptions={[6, 10, 15, 20]}
-            responsive
-            customStyles={{
-              table: {
-                style: {
-                  width: "100%",
-                  tableLayout: "fixed",
-                },
-              },
-              headRow: {
-                style: {
-                  backgroundColor: "#f1f5f9",
-                },
-              },
-              cells: {
-                style: {
-                  padding: "8px",
-                  textAlign: "center",
-                  fontSize: "14px",
-                },
-              },
-            }}
-          />
-        </div>
-        {showForm && (
-          <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex justify-center items-center z-50">
-            <div className="bg-white p-6 rounded shadow-lg w-full max-w-lg">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-bold">
-                  {isEditMode ? "Edit Inventory" : "Add Inventory"}
-                </h2>
-                <button onClick={() => setShowForm(false)} className="text-red-500 font-bold">
-                  ✕
-                </button>
-              </div>
-              {errorMessage && <p className="text-red-500 mb-2">{errorMessage}</p>}
-              <form onSubmit={isEditMode ? handleSubmitEdit : handleSubmit}>
-                <select
-                  id="DrugId"
-                  value={inventory.DrugId}
-                  onChange={(e) => setInventory({ ...inventory, DrugId: e.target.value })}
-                  required
-                  className="p-2 border border-gray-300 rounded bg-white text-zinc-700"
-                >
-                  <option value="">-- เลือกรหัสยา --</option>
-                  {drugList.map((drug) => (
-                    <option key={drug.Drugcode} value={drug.Drugcode}>
-                      {drug.Drugcode}
-                    </option>
-                  ))}
-                </select>
-                <div className="flex flex-col mb-4">
-                  <label htmlFor="InventoryFloor" className="block text-sm font-medium text-gray-900">
-                    InventoryFloor
-                  </label>
-                  <input
-                    type="number"
-                    id="InventoryFloor"
-                    value={inventory.InventoryFloor}
-                    onChange={(e) =>
-                      setInventory({ ...inventory, InventoryFloor: Number(e.target.value) })
-                    }
+
+      </div>
+
+      {/* Modal Form */}
+      {showForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
+          <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-2xl transform transition-all">
+            <div className="flex justify-between items-center mb-6 pb-3 border-b">
+              <h2 className="text-2xl font-bold text-gray-800">
+                {isEditMode ? "แก้ไขข้อมูลในคลัง" : "เพิ่มยาเข้าคลัง"}
+              </h2>
+              <button onClick={resetForm} className="text-gray-400 hover:text-gray-600 text-2xl">
+                &times;
+              </button>
+            </div>
+
+            {errorMessage && <p className="text-red-500 mb-4">{errorMessage}</p>}
+
+            <form onSubmit={isEditMode ? handleSubmitEdit : handleSubmit}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+                {/* Drug Selection */}
+                <div className="md:col-span-2">
+                  <label htmlFor="DrugId" className="block text-sm font-medium text-gray-700 mb-1">ยา</label>
+                  <select
+                    id="DrugId"
+                    value={inventory.drugId}
+                    onChange={(e) => setInventory({ ...inventory, drugId: e.target.value })}
                     required
-                    className="p-2 border border-gray-300 rounded bg-white text-zinc-700"
+                    disabled={isEditMode} // ไม่ให้เปลี่ยนยาตอน Edit
+                    className="select select-bordered w-full bg-white disabled:bg-gray-200 disabled:text-gray-500"
+                  >
+                    <option value="">-- เลือกรหัสยา --</option>
+                    {drugList.map((drug) => {
+                      const isUsedByOther = inventoryList.some(inv => inv.drugId === drug.drugName && inv.id !== inventory.id);
+                      return (
+                        <option key={drug.drugName} value={drug.drugName} disabled={!isEditMode && isUsedByOther}>
+                          {drug.drugName} - {drug.drugName} {!isEditMode && isUsedByOther ? " (มีในคลังแล้ว)" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {isEditMode && <p className="text-xs text-gray-500 mt-1">ไม่สามารถเปลี่ยนยาได้ในโหมดแก้ไข</p>}
+                </div>
+
+                {/* InventoryFloor & InventoryPosition */}
+                <div>
+                  <label htmlFor="InventoryFloor" className="block text-sm font-medium text-gray-700 mb-1">ชั้น</label>
+                  <input type="number" id="InventoryFloor" value={inventory.floor}
+                    onChange={(e) => setInventory({ ...inventory, floor: Number(e.target.value) })}
+                    min="1" max="7" required className="input input-bordered w-full bg-white"
                   />
                 </div>
-                <div className="flex flex-col mb-4">
-                  <label htmlFor="InventoryPosition" className="block text-sm font-medium text-gray-900">
-                    InventoryPosition
-                  </label>
-                  <input
-                    type="number"
-                    id="InventoryPosition"
-                    value={inventory.InventoryPosition}
-                    onChange={(e) =>
-                      setInventory({ ...inventory, InventoryPosition: Number(e.target.value) })
-                    }
-                    required
-                    className="p-2 border border-gray-300 rounded bg-white text-zinc-700"
+                <div>
+                  <label htmlFor="InventoryPosition" className="block text-sm font-medium text-gray-700 mb-1">ช่อง</label>
+                  <input type="number" id="InventoryPosition" value={inventory.position}
+                    onChange={(e) => setInventory({ ...inventory, position: Number(e.target.value) })}
+                    min="1" max="12" required className="input input-bordered w-full bg-white"
                   />
                 </div>
 
-                <div className="flex flex-col mb-4">
-                  <label htmlFor="InventoryQty" className="block text-sm font-medium text-gray-900">
-                    InventoryQty
-                  </label>
-                  <input
-                    type="number"
-                    id="InventoryQty"
-                    value={inventory.InventoryQty}
-                    onChange={(e) =>
-                      setInventory({ ...inventory, InventoryQty: Number(e.target.value) })
-                    }
-                    required
-                    className="p-2 border border-gray-300 rounded bg-white text-zinc-700"
+                {/* InventoryQty */}
+                <div className="md:col-span-2">
+                  <label htmlFor="InventoryQty" className="block text-sm font-medium text-gray-700 mb-1">จำนวนคงคลัง</label>
+                  <input type="number" id="InventoryQty" value={inventory.quantity}
+                    onChange={(e) => setInventory({ ...inventory, quantity: Number(e.target.value) })}
+                    min="0" required className="input input-bordered w-full bg-white"
                   />
                 </div>
-                <div className="flex space-x-4 mb-4">
-                  <div className="flex-1">
-                    <label htmlFor="Min" className="block text-sm font-medium text-gray-900">
-                      Min
-                    </label>
-                    <input
-                      type="number"
-                      id="Min"
-                      value={inventory.Min}
-                      onChange={(e) =>
-                        setInventory({ ...inventory, Min: Number(e.target.value) })
-                      }
-                      required
-                      min={0}
-                      className="p-2 border border-gray-300 rounded bg-white text-zinc-700 w-full"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label htmlFor="Max" className="block text-sm font-medium text-gray-900">
-                      Max
-                    </label>
-                    <input
-                      type="number"
-                      id="Max"
-                      value={inventory.Max}
-                      onChange={(e) =>
-                        setInventory({ ...inventory, Max: Number(e.target.value) })
-                      }
-                      required
-                      min={inventory.Min}
-                      className="p-2 border border-gray-300 rounded bg-white text-zinc-700 w-full"
-                    />
-                  </div>
-                  {/* <div className="flex flex-col mb-4">
-                    <label htmlFor="ExpiryDate" className="block text-sm font-medium text-gray-900">
-                      วันหมดอายุ
-                    </label>
-                    <input
-                      type={isManual ? "text" : "date"} // toggle ได้ระหว่าง text กับ date
-                      id="ExpiryDate"
-                      placeholder={isManual ? "กรอกวันที่ เช่น 2025-06-30" : ""}
-                      value={inventory.Expiydate}
-                      onChange={(e) =>
-                        setInventory({ ...inventory, Expiydate: e.target.value })
-                      }
-                      required
-                      className="p-2 border border-gray-300 rounded bg-white text-zinc-700"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setIsManual(!isManual)}
-                      className="mt-1 text-sm text-blue-500 hover:underline self-end"
-                    >
-                      {isManual ? "เปลี่ยนเป็นปฏิทิน" : "กรอกด้วยตัวเอง"}
-                    </button>
-                  </div>
- */}
+
+
+                {/* Min & Max */}
+                <div>
+                  <label htmlFor="Min" className="block text-sm font-medium text-gray-700 mb-1">จำนวนขั้นต่ำ (Min)</label>
+                  <input type="number" id="Min" value={inventory.min}
+                    onChange={(e) => setInventory({ ...inventory, min: Number(e.target.value) })}
+                    min="0" required className="input input-bordered w-full bg-white"
+                  />
                 </div>
-                <div className="flex justify-end space-x-4">
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(false)}
-                    className="bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 px-4 rounded"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn bg-green-500 text-white hover:bg-green-600 transition duration-300"
-                  >
-                    {isEditMode ? "Update" : "Add"}
-                  </button>
-                  {isEditMode && (
-                    <button
-                      onClick={() => deleteInventory(inventory.id)}
-                      type="button"
-                      className="bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded"
-                    >
-                      ลบ
-                    </button>
-                  )}
+                <div>
+                  <label htmlFor="Max" className="block text-sm font-medium text-gray-700 mb-1">จำนวนสูงสุด (Max)</label>
+                  <input type="number" id="Max" value={inventory.max}
+                    onChange={(e) => setInventory({ ...inventory, max: Number(e.target.value) })}
+                    min={inventory.min + 1} required className="input input-bordered w-full bg-white"
+                  />
                 </div>
-              </form>
-            </div>
+
+              </div>
+              <div className="flex items-center justify-end mt-8 pt-4 border-t gap-3">
+                {isEditMode && (
+                  <button type="button" onClick={() => deleteInventory(inventory.id)} className="btn btn-error btn-outline mr-auto">
+                    <FaTrash /> ลบ
+                  </button>
+                )}
+                <button type="button" onClick={resetForm} className="btn btn-ghost">
+                  ยกเลิก
+                </button>
+                <button type="submit" className="btn btn-success text-white">
+                  {isEditMode ? "บันทึกการเปลี่ยนแปลง" : "เพิ่มเข้าคลัง"}
+                </button>
+              </div>
+            </form>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

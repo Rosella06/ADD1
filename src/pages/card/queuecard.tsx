@@ -1,14 +1,15 @@
 import { FaClock, FaCheck, FaTimes, FaHandHoldingMedical } from 'react-icons/fa';
-import { orderType } from '../../types/orderType';
+import { ordersType } from '../../types/orderType';
 
 type QueueCardProps = {
-  queueData: orderType;
+  queueData: ordersType;
 };
 
 export default function Queuecard({ queueData }: QueueCardProps) {
-  const { OrderStatus, OrderItemName, Slot, OrderQty, DrugInfo, warning } = queueData;
+    const { status,orderItemName,slot,quantity,drug} = queueData;
+console.log('🧾 QueueCard Render:', orderItemName, '| Status:', status);
 
-  if (OrderStatus === 'complete') {
+  if (status === 'complete') {
     return null;
   }
 
@@ -20,7 +21,7 @@ export default function Queuecard({ queueData }: QueueCardProps) {
         return (
           <div className="w-8 h-8 border-4 border-t-4 border-gray-200 border-t-amber-400 rounded-full animate-spin"></div>
         );
-      case 'receive':
+      case 'dispensed':
         return <FaCheck className="text-green-500 text-3xl" />;
       case 'complete':
         return <FaHandHoldingMedical className="text-green-500 text-3xl" />;
@@ -39,6 +40,8 @@ export default function Queuecard({ queueData }: QueueCardProps) {
         );
       case 'error':
         return <FaTimes className="text-red-500 text-2xl" />;
+        case 'dispensed':
+        return <FaCheck className="text-green-400 text-3xl" />;
       default:
         return <FaTimes className="text-red-500 text-2xl" />;
     }
@@ -46,7 +49,7 @@ export default function Queuecard({ queueData }: QueueCardProps) {
 
   const getStatusBorderBottomColor = (status: string) => {
     switch (status) {
-      case 'receive':
+      case 'dispensed':
         return 'border-green-500';
       case 'pending':
         return 'border-amber-500';
@@ -60,19 +63,19 @@ export default function Queuecard({ queueData }: QueueCardProps) {
   };
 
   const getReceivePositionClass = () => {
-    return Slot === 'M01'
+    return slot === 'M01'
       ? 'fixed bottom-10 right-[-2px] z-50'
       : 'fixed bottom-10 left-0.5 z-50';
   };
 
-  const cardPositionClass = OrderStatus === 'receive' ? getReceivePositionClass() : 'relative';
- const getStatusBackgroundColor = (status: string) => {
+  const cardPositionClass = status === 'dispensed' ? getReceivePositionClass() : 'relative';
+  const getStatusBackgroundColor = (status: string) => {
     switch (status) {
       case 'ready':
         return 'bg-slate-200';
       case 'pending':
         return 'bg-amber-100';
-      case 'receive':
+      case 'dispensed':
         return 'bg-green-100';
       case 'complete':
         return 'bg-green-100';
@@ -85,41 +88,44 @@ export default function Queuecard({ queueData }: QueueCardProps) {
   return (
     <div className={`w-full sm:w-1/2 md:w-1/2 lg:w-1/2 xl:w-1/2 px-1 mt-10 ${cardPositionClass}`}>
       <div
-       className={`relative border-b-8 ${getStatusBorderBottomColor(OrderStatus)} ${getStatusBackgroundColor(OrderStatus)} rounded-lg shadow-lg flex p-7`}
+        className={`relative border-b-8 ${getStatusBorderBottomColor(status)} ${getStatusBackgroundColor(status)} rounded-lg shadow-lg flex p-7`}
         style={{ boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)' }}
       >
 
         <div className="flex-shrink-0 mr-4">
           <img
-            src={`${import.meta.env.VITE_APP_IMG}${DrugInfo?.DrugImage}`}
+            src={`${import.meta.env.VITE_APP_IMG}${drug?.drugImage}`}
             className="w-24 h-24 object-cover rounded-lg"
             alt="Drug Image"
           />
         </div>
 
-       
+
         <div className="flex-1 flex flex-col">
           <div className="mb-4 flex justify-between items-start gap-4">
             <h3
               className="text-md font-semibold text-black line-clamp-2 leading-snug pr-4"
-              title={OrderItemName}
+              title={orderItemName}
             >
-              {OrderItemName}
+              {orderItemName}
             </h3>
           </div>
 
           <div className="flex justify-between">
             <div className="flex flex-col items-center bg-gray-100 p-2 rounded-lg shadow-lg w-1/2 mr-3">
               <h4 className="text-sm font-serif text-black">จำนวนยา:</h4>
-              <span className="text-3xl font-bold text-blue-600">{OrderQty}</span>
+              <span className="text-3xl font-bold text-blue-600">{quantity}</span>
             </div>
             <div className="flex flex-col items-center bg-gray-100 p-2 rounded-lg shadow-lg w-1/2 ml-2">
               <h4 className="text-sm font-serif text-black">ช่องรับยา:</h4>
-              <span className="text-3xl font-bold text-green-600">{Slot === 'M01' ? '1' : '2'}</span>
+              <span className="text-3xl font-bold text-green-600">
+                {!slot ? '0' : slot === 'M01' ? '1' : '2'}
+              </span>
+
             </div>
           </div>
 
-          {warning && (
+          {/* {warning && (
             <div className="text-sm text-red-600 mt-2">
               <span>{warning.message}</span>
               <br />
@@ -127,25 +133,29 @@ export default function Queuecard({ queueData }: QueueCardProps) {
               <br />
               <span>จำนวนคงเหลือ: {warning.inventoryRemaining}</span>
             </div>
-          )}
+          )} */}
         </div>
 
-        {OrderStatus === 'receive' ? (
+        {status === 'receive' ? (
           <div className="absolute top-0 right-0 mt-2 mr-2 flex flex-col items-center">
-            <div className="mb-1">{getStatusIcon(OrderStatus)}</div>
+            <div className="mb-1">{getStatusIcon(status)}</div>
             <span className="font-serif text-sm text-black">จัดเสร็จแล้ว</span>
           </div>
         ) : (
           <div className="absolute top-2 right-2 w-16 flex flex-col items-center text-center">
-            <div className="mb-1">{getSmallStatusIcon(OrderStatus)}</div>
+            <div className="mb-1">{getSmallStatusIcon(status)}</div>
             <span className="font-serif text-xs text-black leading-tight">
-              {OrderStatus === 'ready'
+              {status === 'ready'
                 ? 'รอจัดยา'
-                : OrderStatus === 'pending'
-                ? 'กำลังจัดยา'
-                : OrderStatus === 'error'
-                ? 'จัดยาไม่ครบ'
-                : 'ยกเลิก'}
+                : status === 'pending'
+                  ? 'กำลังจัดยา'
+                  : status === 'dispensed'
+                  ? 'จัดเสร็จแล้ว'
+                  : status === 'complete'
+                  ? 'รับยาแล้ว'
+                  : status === 'error'
+                    ? 'จัดยาไม่ครบ'
+                    : 'ยกเลิก'}
             </span>
           </div>
         )}

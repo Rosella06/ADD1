@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from 'react';
 import axios, { AxiosError } from 'axios';
-import { orderType } from '../../types/orderType';
+import { ordersType, prescriptionType } from '../../types/orderType';
 import { Toast } from '../../utils/swal';
 import Queuedetails from './queuedetails';
 import { socket } from '../../utils/websocket';
@@ -9,7 +9,7 @@ import { Usercontext } from '../../constants/constants';
 import Swal from 'sweetalert2';
 
 export default function Home() {
-  const [order, setOrder] = useState<orderType[]>([]);
+  const [order, setOrder] = useState<ordersType[]>([]);
   const { userData } = useContext(Usercontext) as contextType;
   const { token } = userData;
   const [socketData, setSocketData] = useState('');
@@ -70,10 +70,10 @@ export default function Home() {
 
   const fetchData = async () => {
     try {
-      const response = await axios.get<AxiosResponse<orderType[]>>(`${import.meta.env.VITE_APP_API}/orders`, {
+      const response = await axios.get<AxiosResponse<prescriptionType>>(`${import.meta.env.VITE_APP_API}/orders`, {
         headers: { authorization: `Bearer ${token}` }
       });
-      setOrder(response.data.data.filter((items) => items.OrderStatus !== '4'));
+      setOrder(response.data.data.orders.filter((items) => items.status !== 'pickup'));
     } catch (error) {
       if (error instanceof AxiosError) {
         console.error("Error fetching data:", error.response?.data);
@@ -84,19 +84,23 @@ export default function Home() {
   };
 
 
-  useEffect(() => {
-    if (!qr) return;
-
-    if (qr.length === 1) {
-    
-      fetchDataQr(`${import.meta.env.VITE_APP_API}/orders/dispense/${qr}`);
-    } else if (order.length > 0 && order[0]?.PrescriptionId) {
- 
-      fetchDataQr(`${import.meta.env.VITE_APP_API}/orders/status/complete/${qr}/${order[0].PrescriptionId}`);
+  const dispenseAndPickup = async (qrParams: string) => {
+    if (qrParams.length === 1) {
+      await fetchDataQr(`${import.meta.env.VITE_APP_API}/orders/dispense/${qrParams}`);
+    } else if (order.length > 0) {
+      const presNo = qrParams.split("|")[0]
+      const drugCode = qrParams.split("|")[1]
+      await fetchDataQr(`${import.meta.env.VITE_APP_API}/orders/pickup/${presNo}/${drugCode}`);
     } else {
       console.warn('⚠️ ข้าม fetchDataQr เพราะไม่มี order[0]');
     }
-  }, [qr]);
+  }
+
+  useEffect(() => {
+    if (!qr) return;
+
+    dispenseAndPickup(qr)
+  }, [qr, order]);
 
   useEffect(() => {
     fetchData();
@@ -104,35 +108,59 @@ export default function Home() {
 
 
   useEffect(() => {
-    socket.on('res_message', (response) => {
+    socket.on('drug_dispensed', (response) => {
       setSocketData(response);
     });
 
     return () => {
-      socket.off('res_message');
+      socket.off('drug_dispensed');
     };
   }, []);
 
   const clearOrders = async () => {
     try {
-      const response = await axios.get<AxiosResponse<orderType>>(`${import.meta.env.VITE_APP_API}/orders/clear`, {
-        headers: { authorization: `Bearer ${token}` }
+      const machineId = localStorage.getItem('selectedMachineId');
+      if (!machineId) {
+        return Swal.fire({
+          icon: 'error',
+          title: 'ไม่พบเครื่อง',
+          text: 'กรุณาเลือกเครื่องก่อน'
+        });
+      }
+
+      // เปลี่ยนเป็น DELETE และส่ง machineId ใน data
+      const response = await axios.delete(`${import.meta.env.VITE_APP_API}/orders/order`, {
+        headers: { authorization: `Bearer ${token}` },
+        data: { machineId }
       });
+
       Swal.fire({
         icon: "success",
-        title: response.data.message,
+        title: response.data.message || `ล้างรายการเรียบร้อย`,
         showConfirmButton: false,
         timer: 1500,
       });
-      window.location.reload();
+
+      setOrder([]); // ล้าง order ใน frontend โดยไม่ต้อง reload หน้า
     } catch (error) {
       if (error instanceof AxiosError) {
-        console.error(error.response?.data.message);
+        console.error(error.response?.data);
+        Swal.fire({
+          icon: "error",
+          title: "เกิดข้อผิดพลาด",
+          text: error.response?.data?.message || 'Unknown error',
+        });
       } else {
         console.error(error);
+        Swal.fire({
+          icon: "error",
+          title: "เกิดข้อผิดพลาด",
+          text: 'Unknown error',
+        });
       }
     }
   };
+
 
   return (
     <>

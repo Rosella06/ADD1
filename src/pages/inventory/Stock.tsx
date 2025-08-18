@@ -4,7 +4,8 @@ import { Usercontext } from "../../constants/constants";
 import { AxiosResponse, contextType } from "../../types/global.type";
 import DataTable, { TableColumn } from 'react-data-table-component';
 import Swal from "sweetalert2";
-import { FaEdit, FaTrash } from "react-icons/fa";
+import {  FaTrash } from "react-icons/fa";
+//FaEdit,
 import { drugstype } from "../../types/drugs";
 import { machinetype } from "../../types/machinetype";
 import { inventorytype } from "../../types/inventory";
@@ -94,11 +95,11 @@ function Refill() {
   }, []);
 
 
-  const editStock = (item: inventorytype) => {
-    setInventory(item);
-    setIsEditMode(true);
-    setShowForm(true);
-  };
+  // const editStock = (item: inventorytype) => {
+  //   setInventory(item);
+  //   setIsEditMode(true);
+  //   setShowForm(true);
+  // };
 
   const handleSubmitEdit = async (e: FormEvent) => {
     e.preventDefault();
@@ -205,37 +206,37 @@ function Refill() {
   };
 
   const filteredInventoryList = inventoryList.filter(item =>
-    item.Drug.DrugName.toLowerCase().includes(searchTerm.toLowerCase())
+    item.drug.drugName.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const columnsStock: TableColumn<inventorytype>[] = [
     {
       name: 'DrugName',
-      selector: row => row.Drug.DrugName,
+      selector: row => row.drug.drugName,
       sortable: true,
     },
     {
       name: 'InventoryPosition',
-      selector: row => row.InventoryPosition,
+      selector: row => row.position,
       sortable: true,
     },
     {
       name: 'InventoryQty',
-      selector: row => row.InventoryQty,
+      selector: row => row.quantity,
       sortable: true,
     },
     {
       name: 'Max',
-      selector: row => row.Max,
+      selector: row => row.max,
       sortable: true,
     },
     {
       name: 'Actions',
       cell: (item) => (
         <div className="p-3 flex space-x-2 text-2xl">
-          <button onClick={() => editStock(item)} className="p-3 text-yellow-400 flex items-center space-x-1 text-3xl">
+          {/* <button onClick={() => editStock(item)} className="p-3 text-yellow-400 flex items-center space-x-1 text-3xl">
             <FaEdit />
-          </button>
+          </button> */}
           <button onClick={() => deleteInventory(item.id)} className="text-red-600 flex items-center space-x-1">
             <FaTrash />
           </button>
